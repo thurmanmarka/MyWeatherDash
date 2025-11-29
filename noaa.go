@@ -508,7 +508,7 @@ func RenderYearlyNOAA(db *sql.DB, p NOAAYearlyParams) (string, error) {
 			yearMaxDailyRain = agg.maxDailyRain
 		}
 
-		lines += fmt.Sprintf("%4d %02d  %5.1f  %5.1f   %5.1f  %3.0f   %3.0f   %5.1f  %3d   %5.1f  %3d     %3d    %3d    %3d    %3d\n",
+		lines += fmt.Sprintf("%4d %02d  %5.1f  %5.1f   %5.1f  %3.0f    %3.0f   %5.1f  %3d   %5.1f  %3d     %3d    %3d    %3d    %3d\n",
 			p.Year, m, meanMax, meanMin, mean, agg.heatDegDays, agg.coolDegDays, agg.hiTemp, agg.hiTempDay, agg.lowTemp, agg.lowTempDay,
 			agg.daysMaxGE90, agg.daysMaxLE32, agg.daysMinLE32, agg.daysMinLE0)
 	}
@@ -520,7 +520,7 @@ func RenderYearlyNOAA(db *sql.DB, p NOAAYearlyParams) (string, error) {
 	summaryWindMax := yearWindMaxSum / float64(yearMonthsWithData)
 
 	footer := "------------------------------------------------------------------------------------------------\n" +
-		fmt.Sprintf("          %5.1f  %5.1f   %5.1f  %3.0f   %3.0f   %5.1f  --    %5.1f  --      %2d     %2d     %2d     %2d\n\n\n                  PRECIPITATION (in)\n\n                  MAX         ---DAYS OF RAIN---\n                  OBS.               OVER\n YR  MO  TOTAL    DAY  DATE   0.01   0.10   1.00\n------------------------------------------------\n",
+		fmt.Sprintf("         %5.1f  %5.1f   %5.1f  %3.0f   %3.0f   %5.1f        %5.1f           %2d     %2d     %2d     %2d\n\n\n                  PRECIPITATION (in)\n\n                  MAX         ---DAYS OF RAIN---\n                  OBS.               OVER\n YR  MO  TOTAL    DAY  DATE   0.01   0.10   1.00\n------------------------------------------------\n",
 			summaryMax, summaryMin, summaryMean, yearHeatDegDays, yearCoolDegDays, yearHiTemp, yearLowTemp,
 			yearDaysMaxGE90, yearDaysMaxLE32, yearDaysMinLE32, yearDaysMinLE0)
 
