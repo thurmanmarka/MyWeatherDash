@@ -1,0 +1,739 @@
+// ---------------------------------------------------------------------
+// Global chart instances
+// ---------------------------------------------------------------------
+let weatherChart = null;
+let barometerChart = null;
+let feelsLikeChart = null;
+let humidityChart = null;
+let windChart = null;
+let windDirChart = null;
+let windVectorChart = null;
+let rainAmountChart = null;
+let rainRateChart = null;
+let lightningChart = null;
+let insideTempChart = null;
+let insideHumidityChart = null;
+
+// Latest samples for current-conditions panel
+let latestWeather = null;
+let latestBarometer = null;
+let barometerTrend = 'steady';      // 'rapid-rise', 'slow-rise', 'steady', 'slow-fall', 'rapid-fall'
+let barometerLevel = 'normal';      // 'high', 'normal', 'low'
+let barometerForecast = '';         // Human-readable forecast based on logic
+let latestFeelsLike = null;
+let latestHumidity = null;
+let latestInsideTemp = null;
+let latestInsideHumidity = null;
+let latestWind = null;
+let latestRainRate = null;
+let latestRainToday = null;
+let lightningToday = null;
+
+// Active Alerts
+let rainRecentlyActive = false;
+let lightningRecentlyActive = false;
+let windStrong = false;
+
+// Feels-like alert thresholds
+const FEELS_EXTREME_HEAT = 95; // °F heat index threshold for alerting
+const FEELS_EXTREME_COLD = 32; // °F wind chill threshold for alerting
+
+// Day / Week / Month selector
+let currentRange = 'day';
+
+// ---------------------------------------------------------------------
+// Master time grid (driven by /api/weather)
+// ---------------------------------------------------------------------
+let masterTimes = [];     // array<Date>
+let masterTimesMs = [];   // array<number>
+
+function setMasterTimesFromRows(rows) {
+    masterTimes   = rows.map(r => new Date(r.timestamp));
+    masterTimesMs = masterTimes.map(t => t.getTime());
+}
+
+function hasMasterTimes() {
+    return Array.isArray(masterTimes) && masterTimes.length > 0;
+}
+
+// Align data rows to master time grid, inserting nulls as needed
+function alignToMasterTimes(rows, valueSelector) {
+    if (!hasMasterTimes()) return [];
+
+    const map = new Map();
+    for (const r of rows) {
+        const ms = new Date(r.timestamp).getTime();
+        map.set(ms, valueSelector(r));
+    }
+
+    return masterTimesMs.map(ms => map.has(ms) ? map.get(ms) : null);
+}
+
+// ---------------------------------------------------------------------
+// Helpers: time formatting + tick generator
+// ---------------------------------------------------------------------
+function formatTime24(date) {
+    const h = String(date.getHours()).padStart(2, '0');
+    const m = String(date.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
+}
+
+function formatDateTime24(date) {
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const h  = String(date.getHours()).padStart(2, '0');
+    const m  = String(date.getMinutes()).padStart(2, '0');
+    return `${mm}/${dd} ${h}:${m}`;
+}
+
+// Shared tick config for time-based charts
+function makeTimeTickOptions(times) {
+    const timesForTicks  = times.slice();
+    const labelsForTicks = new Array(timesForTicks.length).fill('');
+
+    if (currentRange === 'day' && timesForTicks.length) {
+        const FOUR_HOURS = 4 * 60 * 60 * 1000;
+
+        const first = timesForTicks[0];
+        const last  = timesForTicks[timesForTicks.length - 1];
+
+        // Anchor to *local midnight* of the first day shown
+        const midnight   = new Date(first.getFullYear(), first.getMonth(), first.getDate());
+        const midnightMs = midnight.getTime();
+
+        const startMs = first.getTime();
+        const endMs   = last.getTime();
+
+        const offsetFromMidnight = startMs - midnightMs;
+
+        // First 4-hour boundary at or AFTER the first sample
+        let boundary = midnightMs + Math.ceil(offsetFromMidnight / FOUR_HOURS) * FOUR_HOURS;
+
+        // March forward in 4-hour steps until we pass the end of the window
+        while (boundary <= endMs + FOUR_HOURS) {
+            // Find first index whose time >= this boundary
+            let idx = -1;
+            for (let i = 0; i < timesForTicks.length; i++) {
+                if (timesForTicks[i].getTime() >= boundary) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx === -1) break;
+
+            labelsForTicks[idx] = formatTime24(new Date(boundary));
+            boundary += FOUR_HOURS;
+        }
+    } else if (currentRange === 'week' && timesForTicks.length) {
+        // Place labels at local midnight for each day in the range
+        const first = timesForTicks[0];
+        const last  = timesForTicks[timesForTicks.length - 1];
+
+        // Start from the midnight of the first day
+        let cursor = new Date(first.getFullYear(), first.getMonth(), first.getDate());
+        const endMs = last.getTime();
+
+        while (cursor.getTime() <= endMs) {
+            const boundaryMs = cursor.getTime();
+            // Find first index whose time >= this boundary
+            let idx = -1;
+            for (let i = 0; i < timesForTicks.length; i++) {
+                if (timesForTicks[i].getTime() >= boundaryMs) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx === -1) break;
+
+            // Label with two-digit day (DD)
+            const label = `${String(cursor.getDate()).padStart(2,'0')}`;
+            labelsForTicks[idx] = label;
+
+            // advance by one day
+            cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+        }
+    } else if (currentRange === 'month' && timesForTicks.length) {
+        // Label local midnight for each day in the month range; show DD only.
+        const first = timesForTicks[0];
+        const last  = timesForTicks[timesForTicks.length - 1];
+        let cursor = new Date(first.getFullYear(), first.getMonth(), first.getDate());
+        const endMs = last.getTime();
+
+        while (cursor.getTime() <= endMs) {
+            const boundaryMs = cursor.getTime();
+            let idx = -1;
+            for (let i = 0; i < timesForTicks.length; i++) {
+                if (timesForTicks[i].getTime() >= boundaryMs) { idx = i; break; }
+            }
+            if (idx === -1) break;
+            const dayNum = cursor.getDate();
+            // Show only every other day label (odd day numbers) to reduce crowding.
+            if (dayNum % 2 === 1) {
+                labelsForTicks[idx] = String(dayNum).padStart(2,'0');
+            }
+            cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+        }
+    }
+
+    return {
+        autoSkip: false,
+        maxRotation: 0,
+        callback(value, index) {
+            const t = timesForTicks[index];
+            if (!t) return '';
+
+            if (currentRange === 'day') {
+                return labelsForTicks[index] || '';
+            } else if (currentRange === 'week') {
+                // show only the computed midnight labels, otherwise empty
+                return labelsForTicks[index] || '';
+            } else if (currentRange === 'month') {
+                return labelsForTicks[index] || '';
+            } else {
+                return formatDateTime24(t);
+            }
+        }
+    };
+}
+
+// ---------------------------------------------------------------------
+// Global Chart.js defaults
+// ---------------------------------------------------------------------
+if (window.Chart && Chart.defaults) {
+    Chart.defaults.font.family = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = '#4b5563';
+    Chart.defaults.elements.line.borderWidth = 2;
+    Chart.defaults.elements.line.tension = 0.25;
+    Chart.defaults.elements.point.radius = 0;
+    Chart.defaults.elements.point.hoverRadius = 4;
+    Chart.defaults.elements.point.hitRadius = 6;
+    Chart.defaults.plugins.legend.labels.boxWidth = 10;
+    Chart.defaults.aspectRatio = 1.6;
+}
+
+// Compass Helper
+function degreesToCompass(deg) {
+    if (deg == null || isNaN(deg)) return '--';
+
+    const directions = [
+        "N","NNE","NE","ENE",
+        "E","ESE","SE","SSE",
+        "S","SSW","SW","WSW",
+        "W","WNW","NW","NNW"
+    ];
+
+    const index = Math.round(((deg % 360) / 22.5)) % 16;
+    return directions[index];
+}
+
+
+
+// ---------------------------------------------------------------------
+// Plugins: wind vector + day/night shading
+// ---------------------------------------------------------------------
+const windVectorPlugin = {
+    id: 'windVector',
+    afterDatasetsDraw(chart, args, pluginOptions) {
+        const speeds = pluginOptions.speeds || [];
+        const dirs   = pluginOptions.directions || [];
+        if (!speeds.length || !dirs.length) return;
+
+        const { ctx, scales } = chart;
+        const yScale = scales.y;
+        if (!yScale) return;
+
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || !meta.data.length) return;
+
+        const baseY = yScale.getPixelForValue(0);
+
+        ctx.save();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.9)';
+
+        meta.data.forEach((elem, i) => {
+            const speed = speeds[i];
+            const dir   = dirs[i];
+
+            if (speed == null || isNaN(speed) || dir == null || isNaN(dir)) return;
+
+            const x = elem.x; // true x-position from Chart.js
+
+            const maxSpeed = pluginOptions.maxSpeed || Math.max(...speeds);
+            if (!isFinite(maxSpeed) || maxSpeed <= 0) return;
+
+            const lengthData = speed;
+            const lengthPx = Math.abs(yScale.getPixelForValue(lengthData) - baseY);
+
+            // WeeWX coordinate system with -90° rotation:
+            // Wind direction is "from", so add 180° to get "to" direction
+            // Then subtract 90° for coordinate rotation
+            const dirTo = (dir + 180 - 90) % 360;
+            
+            // Convert to rotated coordinates
+            // After -90° rotation:
+            // North (0°) → points up (+Y)
+            // East (90°) → points right (+X)
+            // South (180°) → points down (-Y)
+            // West (270°) → points left (-X)
+            const angleRad = dirTo * Math.PI / 180;
+            const dx = Math.sin(angleRad) * lengthPx;
+            const dy = -Math.cos(angleRad) * lengthPx;
+
+            const x0 = x;
+            const y0 = baseY;
+            const x1 = x0 + dx;
+            const y1 = y0 + dy;
+
+            // Shaft
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.stroke();
+
+            // Arrow head (barbs at the tip)
+            const headSize = 5;
+            const headAngle = Math.PI * 0.2; // 36 degrees
+            const angleHead1 = angleRad + Math.PI - headAngle;
+            const angleHead2 = angleRad + Math.PI + headAngle;
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(
+                x1 + Math.sin(angleHead1) * headSize,
+                y1 - Math.cos(angleHead1) * headSize
+            );
+            ctx.lineTo(
+                x1 + Math.sin(angleHead2) * headSize,
+                y1 - Math.cos(angleHead2) * headSize
+            );
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(37, 99, 235, 0.9)';
+            ctx.fill();
+        });
+
+        ctx.restore();
+    }
+};
+
+const STATION_LAT = 32.093174;
+const STATION_LON = -110.777557;
+const STATION_TZ_OFFSET_HOURS = -7;
+
+function computeSunTimes(dateLocal) {
+    const lat = STATION_LAT * Math.PI / 180;
+    const lon = STATION_LON;
+
+    const year  = dateLocal.getFullYear();
+    const theMonth = dateLocal.getMonth();
+    const day   = dateLocal.getDate();
+    const startOfYear = new Date(year, 0, 1);
+    const dayOfYear = Math.floor((dateLocal - startOfYear) / (24 * 3600 * 1000)) + 1;
+
+    const gamma = 2 * Math.PI / 365 * (dayOfYear - 1 + (dateLocal.getHours() - 12) / 24);
+
+    const eqTime =
+        229.18 * (
+            0.000075 +
+            0.001868 * Math.cos(gamma) -
+            0.032077 * Math.sin(gamma) -
+            0.014615 * Math.cos(2 * gamma) -
+            0.040849 * Math.sin(2 * gamma)
+        );
+
+    const decl =
+        0.006918 -
+        0.399912 * Math.cos(gamma) +
+        0.070257 * Math.sin(gamma) -
+        0.006758 * Math.cos(2 * gamma) +
+        0.000907 * Math.sin(2 * gamma) -
+        0.002697 * Math.cos(3 * gamma) +
+        0.00148  * Math.sin(3 * gamma);
+
+    const zenith = 90.833 * Math.PI / 180;
+    const cosH = (Math.cos(zenith) - Math.sin(lat) * Math.sin(decl)) /
+                     (Math.cos(lat) * Math.cos(decl));
+
+    if (cosH <= -1) {
+        return {
+            sunrise: new Date(year, theMonth, day, 0, 0, 0),
+            sunset:  new Date(year, theMonth, day, 23, 59, 59)
+        };
+    }
+    if (cosH >= 1) {
+        return {
+            sunrise: new Date(year, theMonth, day, 0, 0, 0),
+            sunset:  new Date(year, theMonth, day, 0, 0, 1)
+        };
+    }
+
+    const Hdeg = Math.acos(cosH) * 180 / Math.PI;
+
+    const sunriseMinutes = 720 - 4 * (lon + Hdeg) - eqTime;
+    const sunsetMinutes  = 720 - 4 * (lon - Hdeg) - eqTime;
+
+    function minutesToLocalDate(minutesUTC) {
+        const localMinutes = minutesUTC + STATION_TZ_OFFSET_HOURS * 60;
+        const hours = Math.floor(localMinutes / 60);
+        const mins  = Math.floor(localMinutes % 60);
+        return new Date(year, theMonth, day, hours, mins, 0);
+    }
+
+    return {
+        sunrise: minutesToLocalDate(sunriseMinutes),
+        sunset:  minutesToLocalDate(sunsetMinutes)
+    };
+}
+
+const dayNightBackgroundPlugin = {
+    id: 'dayNightBackground',
+    beforeDraw(chart, args, pluginOptions) {
+        if (!pluginOptions || !pluginOptions.enabled) return;
+
+        const { ctx, chartArea, scales } = chart;
+        const xScale = scales.x || scales['x'];
+        if (!xScale || !chartArea) return;
+
+        const timesMs = pluginOptions.times;
+        if (!timesMs || timesMs.length < 2) return;
+
+        const fillStyle = pluginOptions.fillStyle || 'rgba(148, 163, 184, 0.16)';
+
+        const top    = chartArea.top;
+        const height = chartArea.bottom - chartArea.top;
+
+        const sunCache = {};
+        const getSunTimesFor = (tsMs) => {
+            const d = new Date(tsMs);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            if (!sunCache[key]) {
+                sunCache[key] = computeSunTimes(d);
+            }
+            return sunCache[key];
+        };
+
+        ctx.save();
+        ctx.fillStyle = fillStyle;
+
+        for (let i = 0; i < timesMs.length - 1; i++) {
+            const tMid = (timesMs[i] + timesMs[i + 1]) / 2;
+            const { sunrise, sunset } = getSunTimesFor(tMid);
+
+            const isNight = tMid < sunrise.getTime() || tMid >= sunset.getTime();
+            if (!isNight) continue;
+
+            const xStart = xScale.getPixelForValue(i);
+            const xEnd   = xScale.getPixelForValue(i + 1);
+
+            if (!Number.isFinite(xStart) || !Number.isFinite(xEnd)) continue;
+
+            ctx.fillRect(xStart, top, xEnd - xStart, height);
+        }
+
+        ctx.restore();
+    }
+};
+
+Chart.register(windVectorPlugin, dayNightBackgroundPlugin);
+
+// ---------------------------------------------------------------------
+// Feels-like selection helper
+// ---------------------------------------------------------------------
+function pickFeelsLikeSource(tempF, heatIndexF, windChillF) {
+    const HEAT_THRESHOLD_F  = 80;
+    const CHILL_THRESHOLD_F = 50;
+
+    let activeValue = tempF;
+    let sourceLabel = 'Air Temp';
+    let sourceKey   = 'air';
+
+    if (!Number.isNaN(heatIndexF) && heatIndexF !== 0 && tempF >= HEAT_THRESHOLD_F) {
+        activeValue = heatIndexF;
+        sourceLabel = 'Heat Index';
+        sourceKey   = 'heat';
+    } else if (!Number.isNaN(windChillF) && windChillF !== 0 && tempF <= CHILL_THRESHOLD_F) {
+        activeValue = windChillF;
+        sourceLabel = 'Wind Chill';
+        sourceKey   = 'chill';
+    }
+
+    return { activeValue, sourceLabel, sourceKey };
+}
+
+// ---------------------------------------------------------------------
+// Range controls
+// ---------------------------------------------------------------------
+function setRange(range) {
+    currentRange = range;
+
+    document.querySelectorAll('.range-button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.range === range);
+    });
+
+    loadAll();
+}
+
+// ---------------------------------------------------------------------
+// Current Conditions sidebar
+// ---------------------------------------------------------------------
+function updateCurrentConditions() {
+    const baroEl            = document.getElementById('cc-barometer');
+    const outTempEl         = document.getElementById('cc-out-temp');
+    const outDewEl          = document.getElementById('cc-out-dew');
+    const feelsLikeEl       = document.getElementById('cc-feelslike');
+    const outHumEl          = document.getElementById('cc-out-hum');
+    const windEl            = document.getElementById('cc-wind');
+    const windRowEl         = document.getElementById('cc-wind-row');
+    const windIconEl        = document.getElementById('cc-wind-icon');
+    const rainTodayEl       = document.getElementById('cc-rain-today');
+    const rainTodayRowEl    = document.getElementById('cc-rain-today-row');
+    const rainRateEl        = document.getElementById('cc-rain-rate');
+    const rainRateRowEl     = document.getElementById('cc-rain-rate-row');
+    const rainIconEl        = document.getElementById('cc-rain-icon');
+    const lightningTodayEl  = document.getElementById('cc-lightning-today');
+    const lightningRowEl    = document.getElementById('cc-lightning-row');
+    const lightningIconEl   = document.getElementById('cc-lightning-icon');
+    // Inside
+    const inTempEl          = document.getElementById('cc-in-temp');
+    const inHumEl           = document.getElementById('cc-in-hum');
+
+    // Barometer
+    if (latestBarometer && typeof latestBarometer.pressure === 'number') {
+        baroEl.textContent = latestBarometer.pressure.toFixed(3) + ' inHg';
+        // Update barometer icon trend class and forecast
+        const baroIconEl = document.getElementById('cc-barometer-icon');
+        const baroForecastEl = document.getElementById('cc-barometer-forecast');
+        if (baroIconEl) {
+            baroIconEl.className = 'cc-barometer-icon ' + barometerTrend;
+        }
+        if (baroForecastEl) {
+            baroForecastEl.textContent = barometerForecast;
+        }
+    } else {
+        baroEl.textContent = '--';
+        barometerTrend = 'steady';
+        barometerLevel = 'normal';
+        barometerForecast = '--';
+        const baroIconEl = document.getElementById('cc-barometer-icon');
+        const baroForecastEl = document.getElementById('cc-barometer-forecast');
+        if (baroIconEl) {
+            baroIconEl.className = 'cc-barometer-icon steady';
+        }
+        if (baroForecastEl) {
+            baroForecastEl.textContent = '--';
+        }
+    }
+
+    // Outside temperature / dew point
+    if (latestWeather) {
+        if (typeof latestWeather.temperature === 'number') {
+            outTempEl.textContent = latestWeather.temperature.toFixed(1) + ' °F';
+        } else {
+            outTempEl.textContent = '--';
+        }
+        if (typeof latestWeather.dewpoint === 'number') {
+            outDewEl.textContent  = latestWeather.dewpoint.toFixed(1) + ' °F';
+        } else {
+            outDewEl.textContent  = '--';
+        }
+    } else {
+        outTempEl.textContent = '--';
+        outDewEl.textContent  = '--';
+    }
+
+    // Feels-like (heat index / wind chill / air temp) + icon + extreme alerts
+    const feelsRowEl = document.getElementById('cc-feels-row');
+    const feelsIconEl = document.getElementById('cc-feels-icon');
+
+    if (latestWeather && latestFeelsLike) {
+        const t  = latestWeather.temperature;
+        const hi = latestFeelsLike.heatIndex;
+        const wc = latestFeelsLike.windChill;
+        const { activeValue, sourceLabel, sourceKey } = pickFeelsLikeSource(t, hi, wc);
+        feelsLikeEl.textContent = activeValue.toFixed(1) + ' °F (' + sourceLabel + ')';
+
+        // Swap icon based on active source
+        if (feelsIconEl) {
+            let svg = '';
+            if (sourceKey === 'heat') {
+                // Sun / heat icon
+                svg = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3.25" stroke="#f59e0b" stroke-width="1.5" fill="none"/><path stroke="#f59e0b" stroke-width="1.5" d="M12 2v1.5M12 20.5V22M4.22 4.22l1.06 1.06M18.72 18.72l1.06 1.06M1 12h1.5M21.5 12H23M4.22 19.78l1.06-1.06M18.72 5.28l1.06-1.06"/></svg>';
+            } else if (sourceKey === 'chill') {
+                // Snowflake / cold icon
+                svg = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g stroke="#06b6d4" stroke-width="1.5" fill="none"><path d="M12 2v20" /><path d="M4 8l16 8" /><path d="M20 8L4 16"/></g></svg>';
+            } else {
+                // Thermometer (air temp)
+                svg = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke="#9ca3af" stroke-width="1.5" fill="none" d="M14 14.5V6a2 2 0 10-4 0v8.5a3 3 0 104 0z" /><path stroke="#9ca3af" stroke-width="1.5" d="M12 2v2" /></svg>';
+            }
+            feelsIconEl.innerHTML = svg;
+        }
+
+        // Determine if value is extreme and should alert/pulse
+        let extreme = false;
+        if (sourceKey === 'heat' && activeValue >= FEELS_EXTREME_HEAT) extreme = true;
+        if (sourceKey === 'chill' && activeValue <= FEELS_EXTREME_COLD) extreme = true;
+
+        if (feelsRowEl) {
+            if (extreme) {
+                feelsRowEl.classList.add('cc-alert');
+                console.log('[UI] Feels-like row: cc-alert class ADDED (extreme)');
+            } else {
+                feelsRowEl.classList.remove('cc-alert');
+                console.log('[UI] Feels-like row: cc-alert class REMOVED');
+            }
+        }
+
+        if (feelsIconEl) {
+            if (extreme) {
+                feelsIconEl.classList.add('cc-pulse');
+                console.log('[UI] Feels icon: cc-pulse class ADDED (extreme)');
+            } else {
+                feelsIconEl.classList.remove('cc-pulse');
+                console.log('[UI] Feels icon: cc-pulse class REMOVED');
+            }
+        }
+
+    } else if (latestWeather && typeof latestWeather.temperature === 'number') {
+        feelsLikeEl.textContent = latestWeather.temperature.toFixed(1) + ' °F (Air Temp)';
+        if (feelsRowEl) feelsRowEl.classList.remove('cc-alert');
+        if (feelsIconEl) feelsIconEl.classList.remove('cc-pulse');
+    } else {
+        feelsLikeEl.textContent = '--';
+    }
+
+    // Outside humidity
+    if (latestHumidity && typeof latestHumidity.humidity === 'number') {
+        outHumEl.textContent = latestHumidity.humidity.toFixed(1) + ' %';
+    } else {
+        outHumEl.textContent = '--';
+    }
+
+    // Wind
+    if (latestWind && latestWind.speed != null) {
+        const spd = latestWind.speed.toFixed(1);
+        if (latestWind.speed === 0 || latestWind.direction == null) {
+            windEl.textContent = `${spd} mph  -- (--)°`;
+        } else {
+            const deg = latestWind.direction.toFixed(0);
+            const dir = degreesToCompass(latestWind.direction);
+            windEl.textContent = `${spd} mph  ${dir} (${deg}°)`;
+        }
+    } else {
+        windEl.textContent = `-- mph -- (--)°`;
+    }
+
+    // Wind alert styling
+if (windRowEl) {
+        if (windStrong) {
+            windRowEl.classList.add('cc-alert');
+            console.log('[UI] Wind alert row: cc-alert class ADDED');
+        } else {
+            windRowEl.classList.remove('cc-alert');
+            console.log('[UI] Wind alert row: cc-alert class REMOVED');
+        }
+    }
+
+    if (windIconEl) {
+        if (windStrong) {
+            windIconEl.classList.add('cc-pulse');
+            console.log('[UI] Wind icon: cc-pulse class ADDED (SVG should now be amber & pulsing)');
+        } else {
+            windIconEl.classList.remove('cc-pulse');
+            console.log('[UI] Wind icon: cc-pulse class REMOVED');
+        }
+    }
+
+    // Inside temperature
+    if (latestInsideTemp && typeof latestInsideTemp.inside_temp_f === 'number') {
+        inTempEl.textContent = latestInsideTemp.inside_temp_f.toFixed(1) + ' °F';
+    } else {
+        inTempEl.textContent = '--';
+    }
+
+    // Inside humidity
+    if (latestInsideHumidity && typeof latestInsideHumidity.inside_humidity === 'number') {
+        inHumEl.textContent = latestInsideHumidity.inside_humidity.toFixed(1) + ' %';
+    } else {
+        inHumEl.textContent = '--';
+    }
+
+    // Rain Today + Rain Rate
+    if (rainTodayEl) {
+        if (typeof rainToday === 'number') {
+            rainTodayEl.textContent = rainToday.toFixed(2) + ' in';
+        } else {
+            rainTodayEl.textContent = '--';
+        }
+    }
+
+    if (rainRateEl) {
+        if (typeof latestRainRate === 'number') {
+            rainRateEl.textContent = latestRainRate.toFixed(2) + ' in/hr';
+        } else {
+            rainRateEl.textContent = '0.00 in/hr';
+        }
+    }
+
+    // Highlight rows when there has been any rain today
+    if (rainTodayRowEl) {
+        if (typeof rainToday === 'number' && rainToday > 0) {
+            rainTodayRowEl.classList.add('cc-alert');
+        } else {
+            rainTodayRowEl.classList.remove('cc-alert');
+        }
+    }
+
+    if (rainRateRowEl) {
+        if (rainRecentlyActive && typeof latestRainRate === 'number' && latestRainRate > 0) {
+            rainRateRowEl.classList.add('cc-alert');
+            console.log('[UI] Rain rate alert row: cc-alert class ADDED');
+        } else {
+            rainRateRowEl.classList.remove('cc-alert');
+            console.log('[UI] Rain rate alert row: cc-alert class REMOVED');
+        }
+    }
+
+    // Pulse icon when there has been rain in the last 10 minutes
+    if (rainIconEl) {
+        if (rainRecentlyActive && typeof latestRainRate === 'number' && latestRainRate > 0) {
+            rainIconEl.classList.add('cc-pulse');
+            console.log('[UI] Rain icon: cc-pulse class ADDED');
+        } else {
+            rainIconEl.classList.remove('cc-pulse');
+            console.log('[UI] Rain icon: cc-pulse class REMOVED');
+        }
+    }
+
+    // Lightning strikes today
+    if (lightningTodayEl) {
+        if (typeof lightningToday === 'number') {
+            lightningTodayEl.textContent = lightningToday.toFixed(0);
+        } else {
+            lightningTodayEl.textContent = '--';
+        }
+    }
+
+    // Color + pulse logic
+    if (lightningRowEl) {
+        // Alert color if there has been *any* lightning today
+        if (typeof lightningToday === 'number' && lightningToday > 0) {
+            lightningRowEl.classList.add('cc-alert');
+            console.log('[UI] Lightning alert row: cc-alert class ADDED');
+        } else {
+            lightningRowEl.classList.remove('cc-alert');
+            console.log('[UI] Lightning alert row: cc-alert class REMOVED');
+        }
+    }
+
+    if (lightningIconEl) {
+        // Pulse only if we've had strikes in the last 10 minutes
+        if (lightningRecentlyActive && typeof lightningToday === 'number' && lightningToday > 0) {
+            lightningIconEl.classList.add('cc-pulse');
+            console.log('[UI] Lightning icon: cc-pulse class ADDED');
+        } else {
+            lightningIconEl.classList.remove('cc-pulse');
+            console.log('[UI] Lightning icon: cc-pulse class REMOVED');
+        }
+    }
+}

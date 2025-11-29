@@ -1,0 +1,77 @@
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"html/template"
+	"log"
+	"net/http"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+)
+
+var (
+	tmplIndex *template.Template
+	db        *sql.DB
+)
+
+func main() {
+	var err error
+
+	// Load config
+	if err := loadConfig("config.yaml"); err != nil {
+		log.Fatal("Error loading config:", err)
+	}
+
+	// Load HTML template
+	tmplIndex, err = template.ParseFiles("templates/index.html")
+	if err != nil {
+		log.Fatal("Error loading template:", err)
+	}
+
+	// Build DSN from config
+	dsn := buildDSN()
+	db, err = sql.Open("mysql", dsn)
+
+	if err != nil {
+		log.Fatal("Error opening DB:", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		log.Fatal("Error pinging DB:", err)
+	}
+
+	// Routes
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	http.HandleFunc("/", handleHome)
+	http.HandleFunc("/api/ping", handlePing)
+	http.HandleFunc("/api/weather", handleWeather)
+	http.HandleFunc("/api/barometer", handleBarometer)
+	http.HandleFunc("/api/feelslike", handleFeelsLike)
+	http.HandleFunc("/api/humidity", handleHumidity)
+	http.HandleFunc("/api/wind", handleWind)
+	http.HandleFunc("/api/rain", handleRain)
+	http.HandleFunc("/api/lightning", handleLightning)
+	http.HandleFunc("/api/insideTemp", handleInsideTemp)
+	http.HandleFunc("/api/insideHumidity", handleInsideHumidity)
+	http.HandleFunc("/api/noaa/monthly", handleNOAAMonthly)
+	http.HandleFunc("/api/noaa/yearly", handleNOAAYearly)
+	http.HandleFunc("/api/statistics", handleStatistics)
+	// Server-Sent Events stream (push updates)
+	broker := NewSSEBroker(db)
+	stopSSE := make(chan struct{})
+	// Poll DB every configured seconds for new rows and broadcast
+	broker.StartPolling(time.Duration(appConfig.Server.SSEPollSeconds)*time.Second, stopSSE)
+	http.Handle("/api/stream", broker)
+
+	addr := fmt.Sprintf(":%d", appConfig.Server.Port)
+	log.Println("Server listening on", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		close(stopSSE)
+		log.Fatal(err)
+	}
+}

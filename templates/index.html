@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Weather Dashboard</title>
+    <style>
+        :root {
+            --bg: #e7edf4;
+            --page-bg: #f5f7fb;
+            --panel-bg: #ffffff;
+            --panel-border: #d2d7e0;
+            --accent: #2563eb;
+            --accent-soft: #e0edff;
+            --text-main: #1f2933;
+            --text-muted: #6b7280;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            padding: 20px;
+            margin: 0;
+            background: radial-gradient(circle at top left, #d9e6ff, #e7edf4 40%, #dde7f4 70%, #d3e0f0 100%);
+            color: var(--text-main);
+        }
+
+        .page-shell {
+            max-width: 2560px;
+            margin: 0 auto;
+            background: var(--page-bg);
+            border-radius: 12px;
+            box-shadow:
+                0 18px 45px rgba(15, 23, 42, 0.16),
+                0 0 0 1px rgba(15, 23, 42, 0.03);
+            padding: 18px 20px 22px 20px;
+        }
+
+        h1 {
+            color: var(--text-main);
+            margin: 0 0 4px 0;
+            letter-spacing: 0.02em;
+            font-weight: 600;
+        }
+
+        .page-header {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: 16px;
+        }
+
+        .page-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 12px;
+            justify-content: space-between;
+        }
+
+        .range-controls {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+        }
+
+        .range-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin: 0 4px 0 2px;
+        }
+
+        .range-button {
+            padding: 5px 12px;
+            border-radius: 999px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .range-button:hover {
+            background: rgba(148, 163, 184, 0.12);
+        }
+
+        .range-button.active {
+            background: var(--accent);
+            color: #ffffff;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+        }
+
+        #reloadBtn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.7);
+            background: #ffffff;
+            cursor: pointer;
+            color: var(--text-main);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+        }
+
+        #reloadBtn:hover {
+            background: #f3f4ff;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
+        }
+
+        #reloadBtn:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+
+        #noaaBtn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.7);
+            background: #ffffff;
+            cursor: pointer;
+            color: var(--text-main);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+            margin-left: 8px;
+        }
+
+        #noaaBtn:hover {
+            background: #f3f4ff;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
+        }
+
+        #noaaBtn:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+
+        /* NOAA Modal */
+        .noaa-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .noaa-modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 900px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .noaa-modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .noaa-modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .noaa-modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+        }
+
+        .noaa-modal-close:hover {
+            color: #000;
+        }
+
+        .noaa-modal-controls {
+            padding: 16px 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .noaa-modal-controls select,
+        .noaa-modal-controls button {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 0.9rem;
+        }
+
+        .noaa-modal-controls button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .noaa-modal-controls button:hover {
+            opacity: 0.9;
+        }
+
+        .noaa-content {
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            white-space: pre;
+            overflow-x: auto;
+            max-height: 60vh;
+            overflow-y: auto;
+            background: #f9f9f9;
+            margin: 0;
+        }
+
+        #status {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Layout: sidebar + main grid */
+        .layout {
+            display: flex;
+            gap: 18px;
+            margin-top: 8px;
+        }
+
+        .sidebar {
+              width: 300px;
+              min-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sidebar-panel,
+        .chart-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 10px 12px 12px;
+            box-shadow:
+                0 8px 18px rgba(15, 23, 42, 0.06),
+                0 0 0 1px rgba(148, 163, 184, 0.15);
+        }
+
+        .sidebar-panel h2,
+        .chart-panel h2 {
+            font-size: 0.9rem;
+            margin: 0 0 6px 0;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Statistics table styling */
+        .stats-grid {
+              display: grid;
+              grid-template-columns: 1fr 45px 45px 20px; /* label | today | range | units */
+              gap: 4px 5px;
+              align-items: center;
+        }
+        .stats-header {
+            display: contents;
+        }
+        .stats-label {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .stats-val {
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-main);
+            font-variant-numeric: tabular-nums;
+            font-size: 0.78rem;
+        }
+        .stats-unit {
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .stats-divider {
+            grid-column: 1 / -1;
+            height: 1px;
+            background: rgba(148,163,184,0.35);
+            margin: 4px 0;
+        }
+
+        .chart-panel h2 span.badge {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            background: var(--accent-soft);
+            color: var(--accent);
+            border-radius: 999px;
+            padding: 2px 8px;
+        }
+
+        .sidebar-section-title {
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-top: 6px;
+            margin-bottom: 3px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.38);
+            padding-bottom: 2px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .cc-row {
+            display: grid;
+            grid-template-columns: 1fr 125px;
+            gap: 8px;
+            font-size: 0.85rem;
+            margin: 2px 0;
+            align-items: center;
+        }
+
+        .cc-label {
+            color: var(--text-muted);
+        }
+
+        .cc-value {
+            font-weight: 600;
+            color: var(--text-main);
+            text-align: left;
+        }
+
+        .main-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+        }
+
+        .chart-panel canvas {
+            width: 100%;
+            height: auto;
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .sidebar-panel {
+                flex: 1 1 260px;
+            }
+        }
+
+        .cc-wind-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.25rem;
+        }
+
+        .cc-wind-icon svg {
+            width: 14px;
+            height: 14px;
+            stroke: #38bdf8;   /* sky-blue */
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.2s ease;
+        }
+
+        .cc-wind-icon.cc-pulse svg {
+            stroke: #f59e0b;   /* amber - alert color */
+            animation: wind-pulse 0.8s ease-in-out infinite;
+        }
+
+        .cc-lightning-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.25rem;
+        }
+
+        .cc-lightning-icon svg {
+            width: 14px;
+            height: 14px;
+            fill: #facc15; /* Tailwind yellow-400 */
+            transition: fill 0.2s ease;
+        }
+
+        .cc-lightning-icon.cc-pulse svg {
+            fill: #f59e0b;  /* amber alert color */
+            animation: cc-pulse 0.8s ease-in-out infinite;
+        }
+
+        .cc-rain-icon-static {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.25rem;
+        }
+
+        .cc-rain-icon-static svg {
+            width: 14px;
+            height: 14px;
+            fill: #3b82f6;
+        }
+
+        .cc-rain-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.25rem;
+        }
+
+        .cc-rain-icon svg {
+            width: 14px;
+            height: 14px;
+            fill: #3b82f6;
+            transition: fill 0.2s ease;
+        }
+
+        .cc-rain-icon.cc-pulse svg {
+            fill: #f59e0b;  /* amber alert color */
+            animation: cc-pulse 0.8s ease-in-out infinite;
+        }
+
+        .cc-barometer-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.25rem;
+            position: relative;
+        }
+
+        .cc-barometer-icon svg {
+            width: 14px;
+            height: 14px;
+            opacity: 0.95;
+            vector-effect: non-scaling-stroke;
+            transition: transform 0.3s ease;
+        }
+
+        /* Arrow rotations for trend states */
+        .cc-barometer-icon.rapid-rise svg,
+        .cc-barometer-icon.slow-rise svg {
+            transform: rotate(0deg);
+        }
+
+        .cc-barometer-icon.slow-fall svg,
+        .cc-barometer-icon.rapid-fall svg {
+            transform: rotate(180deg);
+        }
+
+        .cc-barometer-icon.steady svg {
+            transform: rotate(90deg);
+        }
+
+        /* Animate rapid changes */
+        .cc-barometer-icon.rapid-rise svg,
+        .cc-barometer-icon.rapid-fall svg {
+            animation: barometer-pulse 0.6s ease-in-out infinite;
+        }
+
+        @keyframes barometer-pulse {
+            0%, 100% { opacity: 0.95; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Small icons for temperature / dewpoint / humidity (non-alerting) */
+        .cc-temp-icon,
+        .cc-temp-inside-icon,
+        .cc-dew-icon,
+        .cc-humidity-icon,
+        .cc-feels-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.25rem;
+        }
+
+        /* Base size and common properties for small icons */
+        .cc-temp-icon svg,
+        .cc-temp-inside-icon svg,
+        .cc-dew-icon svg,
+        .cc-humidity-icon svg,
+        .cc-feels-icon svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0.95;
+            vector-effect: non-scaling-stroke;
+            display: block;
+        }
+
+        /* Individual colors */
+        .cc-temp-icon svg { stroke: #dc2626; }    /* mercury red for outside temperature */
+        .cc-temp-inside-icon svg { stroke: #f87171; }    /* softer red for inside temperature */
+        .cc-dew-icon svg  { stroke: #22d3ee; }    /* cool cyan for dew point */
+        .cc-humidity-icon svg { stroke: #0ea5e9; }/* aqua blue for humidity */
+        .cc-feels-icon svg { stroke: #9ca3af; }   /* neutral gray */
+
+        .cc-feels-icon.cc-pulse svg {
+            stroke: #f59e0b;
+            animation: cc-pulse 0.8s ease-in-out infinite;
+        }
+        
+        /* Alert color for active/any strikes */
+        .cc-alert {
+            color: #fbbf24 !important;  /* amber-400-ish */
+            font-weight: 600;
+        }
+
+        .cc-alert .cc-label,
+        .cc-alert .cc-value {
+            color: #fbbf24 !important;  /* amber-400-ish */
+        }
+
+        /* Pulse animation for wind alerts */
+        @keyframes wind-pulse {
+            0% {
+                stroke-width: 2;
+                opacity: 1;
+            }
+            50% {
+                stroke-width: 2.5;
+                opacity: 0.6;
+            }
+            100% {
+                stroke-width: 2;
+                opacity: 1;
+            }
+        }
+
+        /* Pulse animation for lightning/rain alerts */
+        .cc-pulse {
+            animation: cc-pulse 0.8s ease-in-out infinite;
+        }
+
+        @keyframes cc-pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.15);
+                opacity: 0.6;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .cc-normal {
+            color: inherit;
+            font-weight: normal;
+        }
+        /* Overrides: unify label/value font sizes across panels */
+        .cc-label, .cc-value { font-size: 0.85rem; }
+        .cc-value { font-weight: normal; }
+        .stats-label, .stats-val { font-size: 0.78rem; }
+        .stats-val { font-weight: normal; }
+    </style>
+</head>
+<body>
+<div class="page-shell">
+    <div class="page-header">
+        <h1>{{ .LocationName }} Weather</h1>
+        <div class="page-subtitle">Super Dashboard for local weather enthusiasts</div>
+    </div>
+
+    <div class="controls-row">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="range-controls">
+                <span class="range-label">History</span>
+                <button class="range-button active" data-range="day">Day</button>
+                <button class="range-button" data-range="week">Week</button>
+                <button class="range-button" data-range="month">Month</button>
+            </div>
+            <button id="noaaBtn">📊 NOAA Reports</button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="status"></span>
+            <button id="reloadBtn">⟳ Reload</button>
+        </div>
+    </div>
+
+    <div class="layout">
+        <!-- Sidebar: Current Conditions, etc. -->
+        <div class="sidebar">
+            <div class="sidebar-panel">
+                <h2>Current Conditions</h2>
+                <!-- PRESSURE -->
+                <div class="sidebar-section-title">Pressure</div>
+                <div class="cc-row">
+                    <span class="cc-label">
+                        <span class="cc-barometer-icon" id="cc-barometer-icon" aria-hidden="true">
+                            <!-- Barometer icon: arrow up/down/horizontal -->
+                            <svg viewBox="0 0 24 24">
+                                <path stroke="#22c55e" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" d="M12 4v16M7 9l5-5 5 5" />
+                            </svg>
+                        </span>
+                        Barometer
+                    </span>
+                    <span class="cc-value" id="cc-barometer">--</span>
+                </div>
+                <div class="cc-row" style="font-size: 0.75rem; color: var(--text-muted); margin-top: -2px;">
+                    <span style="margin-left: 20px;" id="cc-barometer-forecast">--</span>
+                </div>
+                <!-- OUTSIDE -->
+                <div class="sidebar-section-title">Outside</div>
+                <div class="cc-row">
+                    <span class="cc-label">
+                        <span class="cc-temp-icon" aria-hidden="true">
+                            <!-- small thermometer SVG -->
+                            <svg viewBox="0 0 24 24">
+                                <path d="M14 14.76V5a2 2 0 10-4 0v9.76a4 4 0 104 0z" />
+                                <path d="M12 2v2" />
+                            </svg>
+                        </span>
+                        Temperature
+                    </span>
+                    <span class="cc-value" id="cc-out-temp">--</span>
+                </div>
+                <div class="cc-row" id="cc-feels-row">
+                    <span class="cc-label">
+                        <span class="cc-feels-icon" id="cc-feels-icon" aria-hidden="true">
+                            <!-- Heroicons-style feels icon (thermometer outline) - Option C -->
+                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke="#9ca3af" stroke-width="1.5" fill="none" d="M14 14.5V6a2 2 0 10-4 0v8.5a3 3 0 104 0z" />
+                                <path stroke="#9ca3af" stroke-width="1.5" d="M12 2v2" />
+                            </svg>
+                        </span>
+                        Feels Like
+                    </span>
+                    <span class="cc-value" id="cc-feelslike">--</span>
+                </div>
+                <div class="cc-row">
+                    <span class="cc-label">
+                        <span class="cc-dew-icon" aria-hidden="true">
+                            <!-- small dew/drop SVG -->
+                            <svg viewBox="0 0 24 24">
+                                <path stroke="#3b82f6" stroke-width="1.5" fill="none" d="M12 2C9 6 7 9 7 12a5 5 0 0010 0c0-3-2-6-5-10z" />
+                            </svg>
+                        </span>
+                        Dew Point
+                    </span>
+                    <span class="cc-value" id="cc-out-dew">--</span>
+                </div>
+                <div class="cc-row">
+                    <span class="cc-label">
+                        <span class="cc-humidity-icon" aria-hidden="true">
+                            <!-- small humidity/water percent SVG -->
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2C9 6 7 9 7 12a5 5 0 0010 0c0-3-2-6-5-10z" />
+                                <path d="M9 14a3 3 0 006 0" stroke-width="1.2" />
+                            </svg>
+                        </span>
+                        Humidity
+                    </span>
+                    <span class="cc-value" id="cc-out-hum">--</span>
+                </div>
+                <div class="cc-row" id="cc-wind-row">
+                    <span class="cc-label">
+                        <span class="cc-wind-icon" id="cc-wind-icon" aria-hidden="true">
+                            <!-- Tiny wind swirl SVG -->
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4 10h9a3 3 0 100-6 2 2 0 010-4" />
+                                <path d="M4 16h11a3 3 0 110 6" />
+                                <path d="M4 13h7a2 2 0 100-4" />
+                            </svg>
+                        </span>
+                        Wind
+                    </span>
+                    <span class="cc-value" id="cc-wind"></span>
+                </div>
+                <div class="cc-row" id="cc-rain-today-row">
+                    <span class="cc-label">
+                        <span class="cc-rain-icon-static" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2C9 6 7 9 7 12a5 5 0 0010 0c0-3-2-6-5-10z"></path>
+                            </svg>
+                        </span>
+                        Rain Today
+                    </span>
+                    <span class="cc-value" id="cc-rain-today"></span>
+                </div>
+                <div class="cc-row" id="cc-rain-rate-row">
+                    <span class="cc-label">
+                        <span class="cc-rain-icon" id="cc-rain-icon" aria-hidden="true">
+                            <!-- Tiny rain drop SVG -->
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2C9 6 7 9 7 12a5 5 0 0010 0c0-3-2-6-5-10z"></path>
+                            </svg>
+                        </span>
+                        Rain Rate
+                    </span>
+                    <span class="cc-value" id="cc-rain-rate"></span>
+                </div>
+                <div class="cc-row" id="cc-lightning-row">
+                    <span class="cc-label">
+                        <span class="cc-lightning-icon" id="cc-lightning-icon" aria-hidden="true">
+                            <!-- Tiny lightning bolt SVG -->
+                            <svg viewBox="0 0 24 24">
+                                <path d="M13 2L4 14h6l-1 8 9-12h-6z"></path>
+                            </svg>
+                        </span>
+                        Lightning Strikes
+                    </span>
+                    <span class="cc-value" id="cc-lightning-today"></span>
+                </div>
+                <!-- INSIDE -->
+                <div class="sidebar-section-title">Inside</div>
+                <div class="cc-row">
+                    <span class="cc-label">
+                        <span class="cc-temp-inside-icon" aria-hidden="true">
+                            <!-- small thermometer SVG (inside) -->
+                            <svg viewBox="0 0 24 24">
+                                <path d="M14 14.76V5a2 2 0 10-4 0v9.76a4 4 0 104 0z" />
+                                <path d="M12 2v2" />
+                            </svg>
+                        </span>
+                        Temperature
+                    </span>
+                    <span class="cc-value" id="cc-in-temp">--</span>
+                </div>
+                <div class="cc-row">
+                    <span class="cc-label">
+                        <span class="cc-humidity-icon" aria-hidden="true">
+                            <!-- small humidity/water percent SVG -->
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2C9 6 7 9 7 12a5 5 0 0010 0c0-3-2-6-5-10z" />
+                                <path d="M9 14a3 3 0 006 0" stroke-width="1.2" />
+                            </svg>
+                        </span>
+                        Humidity
+                    </span>
+                    <span class="cc-value" id="cc-in-hum">--</span>
+                </div>
+            </div>
+
+            <!-- Statistics panel moved to sidebar -->
+            <div class="sidebar-panel statistics">
+                <h2>Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stats-label"></div>
+                    <div class="stats-val">Today</div>
+                    <div class="stats-val" id="stats-range-label">Range</div>
+                    <div class="stats-unit"></div>
+
+                    <div class="stats-divider"></div>
+
+                    <div class="stats-label">Outside Temperature</div>
+                    <div class="stats-val" id="stats-temp-hi-today">--</div>
+                    <div class="stats-val" id="stats-temp-hi-range">--</div>
+                    <div class="stats-unit" id="stats-temp-unit">°F</div>
+
+                    <div class="stats-label" style="margin-left: 12px; font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;">Low</div>
+                    <div class="stats-val" id="stats-temp-lo-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-val" id="stats-temp-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°F</div>
+
+                    <div class="stats-label">Heat Index</div>
+                    <div class="stats-val" id="stats-feels-hi-today">--</div>
+                    <div class="stats-val" id="stats-feels-hi-range">--</div>
+                    <div class="stats-unit" id="stats-feels-unit">°F</div>
+
+                    <div class="stats-label" style="margin-left: 12px; font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;">Low</div>
+                    <div class="stats-val" id="stats-feels-lo-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-val" id="stats-feels-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°F</div>
+
+                    <div class="stats-label">Wind Chill (Low)</div>
+                    <div class="stats-val" id="stats-windchill-today">--</div>
+                    <div class="stats-val" id="stats-windchill-range">--</div>
+                    <div class="stats-unit" id="stats-windchill-unit">°F</div>
+
+                    <div class="stats-label">Dew Point</div>
+                    <div class="stats-val" id="stats-dew-hi-today">--</div>
+                    <div class="stats-val" id="stats-dew-hi-range">--</div>
+                    <div class="stats-unit" id="stats-dew-unit">°F</div>
+
+                    <div class="stats-label" style="margin-left: 12px; font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;">Low</div>
+                    <div class="stats-val" id="stats-dew-lo-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-val" id="stats-dew-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°F</div>
+
+                    <div class="stats-label">Outside Humidity</div>
+                    <div class="stats-val" id="stats-humidity-today">--</div>
+                    <div class="stats-val" id="stats-humidity-range">--</div>
+                    <div class="stats-unit" id="stats-humidity-unit">%</div>
+
+                    <div class="stats-label">Barometer</div>
+                    <div class="stats-val" id="stats-barometer-hi-today">--</div>
+                    <div class="stats-val" id="stats-barometer-hi-range">--</div>
+                    <div class="stats-unit" id="stats-barometer-unit">inHg</div>
+
+                    <div class="stats-label" style="margin-left: 12px; font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;">Low</div>
+                    <div class="stats-val" id="stats-barometer-lo-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-val" id="stats-barometer-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">inHg</div>
+
+                    <div class="stats-divider"></div>
+
+                    <div class="stats-label">Rain</div>
+                    <div class="stats-val" id="stats-rain-today">--</div>
+                    <div class="stats-val" id="stats-rain-range">--</div>
+                    <div class="stats-unit" id="stats-rain-unit">in</div>
+
+                    <div class="stats-label">Rain Rate</div>
+                    <div class="stats-val" id="stats-rain-rate-today">--</div>
+                    <div class="stats-val" id="stats-rain-rate-range">--</div>
+                    <div class="stats-unit" id="stats-rain-rate-unit">in/h</div>
+
+                    <div class="stats-label">Lightning Strikes</div>
+                    <div class="stats-val" id="stats-strike-today">--</div>
+                    <div class="stats-val" id="stats-strike-range">--</div>
+                    <div class="stats-unit" id="stats-strike-unit">--</div>
+
+                    <div class="stats-label">Lightning Distance</div>
+                    <div class="stats-val" id="stats-lightning-distance-today">--</div>
+                    <div class="stats-val" id="stats-lightning-distance-range">--</div>
+                    <div class="stats-unit" id="stats-lightning-distance-unit">mi</div>
+
+                    <div class="stats-divider"></div>
+
+                    <div class="stats-label">Max Wind</div>
+                    <div class="stats-val" id="stats-wind-max-today">--</div>
+                    <div class="stats-val" id="stats-wind-max-range">--</div>
+                    <div class="stats-unit" id="stats-wind-max-unit">mph</div>
+
+                    <div class="stats-label" style="margin-left: 12px; font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;">Direction</div>
+                    <div class="stats-val" id="stats-wind-max-dir-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-val" id="stats-wind-max-dir-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°</div>
+
+                    <div class="stats-label">Average Wind</div>
+                    <div class="stats-val" id="stats-wind-avg-today">--</div>
+                    <div class="stats-val" id="stats-wind-avg-range">--</div>
+                    <div class="stats-unit" id="stats-wind-avg-unit">mph</div>
+
+                    <div class="stats-label">RMS Wind</div>
+                    <div class="stats-val" id="stats-wind-rms-today">--</div>
+                    <div class="stats-val" id="stats-wind-rms-range">--</div>
+                    <div class="stats-unit" id="stats-wind-rms-unit">mph</div>
+
+                    <div class="stats-label">Vector Average</div>
+                    <div class="stats-val" id="stats-wind-vector-today">--</div>
+                    <div class="stats-val" id="stats-wind-vector-range">--</div>
+                    <div class="stats-unit" id="stats-wind-vector-unit">mph</div>
+
+                    <div class="stats-label">Vector Direction</div>
+                    <div class="stats-val" id="stats-wind-vector-dir-today">--</div>
+                    <div class="stats-val" id="stats-wind-vector-dir-range">--</div>
+                    <div class="stats-unit" id="stats-wind-vector-dir-unit">°</div>
+
+                    <div class="stats-divider"></div>
+
+                    <div class="stats-label">Inside Temperature</div>
+                    <div class="stats-val" id="stats-inside-temp-hi-today">--</div>
+                    <div class="stats-val" id="stats-inside-temp-hi-range">--</div>
+                    <div class="stats-unit" id="stats-inside-temp-unit">°F</div>
+
+                    <div class="stats-label" style="margin-left: 12px; font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;">Low</div>
+                    <div class="stats-val" id="stats-inside-temp-lo-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-val" id="stats-inside-temp-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°F</div>
+
+                    <div class="stats-label">Inside Humidity</div>
+                    <div class="stats-val" id="stats-inside-hum-hi-today">--</div>
+                    <div class="stats-val" id="stats-inside-hum-hi-range">--</div>
+                    <div class="stats-unit" id="stats-inside-hum-unit">%</div>
+
+                    <div class="stats-label" style="margin-left: 12px; font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;">Low</div>
+                    <div class="stats-val" id="stats-inside-hum-lo-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-val" id="stats-inside-hum-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
+                    <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main chart grid -->
+        <div class="main-grid">
+
+            <div class="chart-panel">
+                <h2>
+                    Barometer
+                    <span class="badge">Pressure</span>
+                </h2>
+                <canvas id="barometerChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Outside Temperature &amp; Dew Point
+                    <span class="badge">Air</span>
+                </h2>
+                <canvas id="weatherChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Feels Like (Heat Index / Wind Chill)
+                    <span class="badge">Comfort</span>
+                </h2>
+                <canvas id="feelsLikeChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Outside Humidity
+                    <span class="badge">Air</span>
+                </h2>
+                <canvas id="humidityChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Wind Speed &amp; Gust
+                    <span class="badge">Wind</span>
+                </h2>
+                <canvas id="windChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Wind Direction
+                    <span class="badge">Wind</span>
+                </h2>
+                <canvas id="windDirChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Wind Vector
+                    <span class="badge">Wind</span>
+                </h2>
+                <canvas id="windVectorChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Rain Amount
+                    <span class="badge">Precip</span>
+                </h2>
+                <canvas id="rainAmountChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Rain Rate
+                    <span class="badge">Precip</span>
+                </h2>
+                <canvas id="rainRateChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Lightning
+                    <span class="badge">Lightning</span>
+                </h2>
+                <canvas id="lightningChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Inside Temperature
+                    <span class="badge">Indoor</span>
+                </h2>
+                <canvas id="insideTempChart"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h2>
+                    Inside Humidity
+                    <span class="badge">Indoor</span>
+                </h2>
+                <canvas id="insideHumidityChart"></canvas>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- NOAA Reports Modal -->
+<div id="noaaModal" class="noaa-modal">
+    <div class="noaa-modal-content">
+        <div class="noaa-modal-header">
+            <h2>NOAA Climatological Summary</h2>
+            <button class="noaa-modal-close">&times;</button>
+        </div>
+        <div class="noaa-modal-controls">
+            <select id="noaaType">
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+            </select>
+            <select id="noaaYear"></select>
+            <select id="noaaMonth">
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+            </select>
+            <button id="noaaLoad">Load</button>
+            <button id="noaaDownload">Download</button>
+            <button id="noaaRecompile" style="background: #f59e0b; margin-left: 10px;">🔄 Force Recompile</button>
+        </div>
+        <pre id="noaaContent" class="noaa-content">Select options and click Load</pre>
+    </div>
+</div>
+
+<!-- Injected app config from server -->
+<script>
+     window.APP_CONFIG = window.APP_CONFIG || {};
+     /* Emit the configured client poll interval in milliseconds.
+         A value of 0 disables client-side periodic polling. */
+     window.APP_CONFIG.clientPollMs = {{ .ClientPollMs }};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/static/js/core.js?v={{ .AssetVersion }}"></script>
+<script src="/static/js/charts.js?v={{ .AssetVersion }}"></script>
+<script src="/static/js/noaa.js?v={{ .AssetVersion }}"></script>
+</body>
+</html>

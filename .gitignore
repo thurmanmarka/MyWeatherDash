@@ -1,0 +1,29 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+weatherdash*
+
+# Go build directories
+bin/
+build/
+dist/
+
+# Config files with secrets
+config.yaml
+
+# Logs
+*.log
+
+# Generated files
+*.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp

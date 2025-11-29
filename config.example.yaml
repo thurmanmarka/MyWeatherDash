@@ -1,0 +1,24 @@
+# Database configuration
+db:
+  user: example_user
+  password: "example_password"
+  host: "127.0.0.1"
+  port: 3306
+  name: "weewx"
+  params: "parseTime=false"
+
+# Server configuration
+server:
+  # HTTP server port (defaults to 8080 if not set)
+  port: 8080
+  # Server-Sent Events poll interval (seconds) — how often server checks DB for new rows
+  sse_poll_seconds: 60
+  # Client poll interval (seconds) — how often front-end calls loadAll() if SSE is unavailable. 0 disables polling.
+  client_poll_seconds: 600
+
+# Location configuration
+location:
+  name: "My Weather Station"
+  latitude: 0.0
+  longitude: 0.0
+  altitude: 0  # feet above sea level
