@@ -97,6 +97,86 @@ func handleBarometer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate trend, level, and forecast for the latest reading
+	if len(readings) > 4 {
+		latest := &readings[len(readings)-1]
+		current := latest.Pressure
+		prior := readings[len(readings)-5].Pressure
+		change := current - prior
+
+		// Determine pressure level
+		if current > 30.20 {
+			latest.Level = "high"
+		} else if current < 29.80 {
+			latest.Level = "low"
+		} else {
+			latest.Level = "normal"
+		}
+
+		// Determine rate of change (per hour)
+		// Assuming 5 intervals in data; typical WeeWX is 5-min intervals = 12 per hour
+		// So 5 intervals = ~25 minutes. Change per hour ≈ change * (60/25) = change * 2.4
+		changePerHour := math.Abs(change) * 2.4
+
+		// Categorize trend based on rate
+		if change > 0 {
+			if changePerHour >= 0.06 {
+				latest.Trend = "rapid-rise"
+			} else if changePerHour >= 0.02 {
+				latest.Trend = "slow-rise"
+			} else {
+				latest.Trend = "steady"
+			}
+		} else if change < 0 {
+			if changePerHour >= 0.06 {
+				latest.Trend = "rapid-fall"
+			} else if changePerHour >= 0.02 {
+				latest.Trend = "slow-fall"
+			} else {
+				latest.Trend = "steady"
+			}
+		} else {
+			latest.Trend = "steady"
+		}
+
+		// Generate forecast based on level + trend
+		switch latest.Level {
+		case "high":
+			switch latest.Trend {
+			case "steady", "slow-rise":
+				latest.Forecast = "Fair weather"
+			case "rapid-rise":
+				latest.Forecast = "Fair, improving"
+			case "slow-fall":
+				latest.Forecast = "Cloudy later"
+			case "rapid-fall":
+				latest.Forecast = "Warmer, cloudier"
+			}
+		case "normal":
+			switch latest.Trend {
+			case "steady", "slow-rise":
+				latest.Forecast = "Conditions continue"
+			case "rapid-rise":
+				latest.Forecast = "Improving"
+			case "slow-fall":
+				latest.Forecast = "Minor changes"
+			case "rapid-fall":
+				latest.Forecast = "Rain/snow likely"
+			}
+		case "low":
+			switch latest.Trend {
+			case "steady", "slow-rise":
+				latest.Forecast = "Cooler, clearing"
+			case "rapid-rise":
+				latest.Forecast = "Improving quickly"
+			case "slow-fall":
+				latest.Forecast = "Rain coming"
+			case "rapid-fall":
+				latest.Forecast = "Stormy weather"
+			}
+		}
+	}
+
 	if err := json.NewEncoder(w).Encode(readings); err != nil {
 		http.Error(w, "JSON error", http.StatusInternalServerError)
 	}
@@ -162,7 +242,7 @@ func handleFeelsLike(w http.ResponseWriter, r *http.Request) {
 	since := time.Now().Add(-dur).Unix()
 
 	rows, err := db.Query(`
-		SELECT dateTime, heatindex, windchill
+		SELECT dateTime, heatindex, windchill, outTemp
 		FROM archive
 		WHERE dateTime >= ?
 		ORDER BY dateTime ASC
@@ -177,9 +257,9 @@ func handleFeelsLike(w http.ResponseWriter, r *http.Request) {
 	var readings []FeelsLikeReading
 	for rows.Next() {
 		var epochSec int64
-		var heatF, chillF float64
+		var heatF, chillF, tempF float64
 
-		if err := rows.Scan(&epochSec, &heatF, &chillF); err != nil {
+		if err := rows.Scan(&epochSec, &heatF, &chillF, &tempF); err != nil {
 			log.Println("DB scan error (feelslike):", err)
 			http.Error(w, "DB scan error", http.StatusInternalServerError)
 			return
@@ -187,11 +267,14 @@ func handleFeelsLike(w http.ResponseWriter, r *http.Request) {
 
 		ts := time.Unix(epochSec, 0)
 
-		readings = append(readings, FeelsLikeReading{
+		reading := FeelsLikeReading{
 			Timestamp: ts,
 			HeatIndex: heatF,
 			WindChill: chillF,
-		})
+		}
+
+		// For the latest reading, compute active feels-like value
+		readings = append(readings, reading)
 	}
 	if err := rows.Err(); err != nil {
 		log.Println("DB rows error (feelslike):", err)
@@ -199,8 +282,59 @@ func handleFeelsLike(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compute active feels-like for the latest reading
+	if len(readings) > 0 {
+		latest := &readings[len(readings)-1]
+
+		// Need to get the temperature for the latest record
+		var tempF float64
+		err := db.QueryRow(`
+			SELECT outTemp FROM archive 
+			WHERE dateTime = ?
+		`, latest.Timestamp.Unix()).Scan(&tempF)
+
+		if err == nil {
+			active := pickFeelsLikeSource(tempF, latest.HeatIndex, latest.WindChill)
+			latest.ActiveValue = active.value
+			latest.ActiveSource = active.source
+			latest.ActiveLabel = active.label
+		}
+	}
+
 	if err := json.NewEncoder(w).Encode(readings); err != nil {
 		http.Error(w, "JSON error", http.StatusInternalServerError)
+	}
+}
+
+// Helper to pick the active feels-like source
+type feelsLikeSource struct {
+	value  float64
+	source string
+	label  string
+}
+
+func pickFeelsLikeSource(tempF, heatIndexF, windChillF float64) feelsLikeSource {
+	const HEAT_THRESHOLD_F = 80.0
+	const CHILL_THRESHOLD_F = 50.0
+
+	activeValue := tempF
+	sourceLabel := "Air Temp"
+	sourceKey := "air"
+
+	if !math.IsNaN(heatIndexF) && heatIndexF != 0 && tempF >= HEAT_THRESHOLD_F {
+		activeValue = heatIndexF
+		sourceLabel = "Heat Index"
+		sourceKey = "heat"
+	} else if !math.IsNaN(windChillF) && windChillF != 0 && tempF <= CHILL_THRESHOLD_F {
+		activeValue = windChillF
+		sourceLabel = "Wind Chill"
+		sourceKey = "chill"
+	}
+
+	return feelsLikeSource{
+		value:  activeValue,
+		source: sourceKey,
+		label:  sourceLabel,
 	}
 }
 
@@ -307,9 +441,43 @@ func handleWind(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compute compass direction and strong flag for latest reading
+	if len(readings) > 0 {
+		latest := &readings[len(readings)-1]
+
+		// Compass direction
+		if latest.Direction != nil {
+			latest.Compass = degreesToCompass(*latest.Direction)
+		} else {
+			latest.Compass = "--"
+		}
+
+		// Strong wind detection (speed >= 20 mph OR gust >= 25 mph)
+		const WIND_STRONG_SPEED = 20.0
+		const WIND_STRONG_GUST = 25.0
+		latest.Strong = (latest.Speed >= WIND_STRONG_SPEED || latest.Gust >= WIND_STRONG_GUST)
+	}
+
 	if err := json.NewEncoder(w).Encode(readings); err != nil {
 		http.Error(w, "JSON error", http.StatusInternalServerError)
 	}
+}
+
+// Helper to convert wind direction degrees to 16-point compass
+func degreesToCompass(deg float64) string {
+	if math.IsNaN(deg) {
+		return "--"
+	}
+
+	directions := []string{
+		"N", "NNE", "NE", "ENE",
+		"E", "ESE", "SE", "SSE",
+		"S", "SSW", "SW", "WSW",
+		"W", "WNW", "NW", "NNW",
+	}
+
+	index := int(math.Round(math.Mod(deg, 360.0)/22.5)) % 16
+	return directions[index]
 }
 
 // -------------------- /api/rain --------------------
@@ -356,6 +524,26 @@ func handleRain(w http.ResponseWriter, r *http.Request) {
 		log.Println("DB rows error (rain):", err)
 		http.Error(w, "DB rows error", http.StatusInternalServerError)
 		return
+	}
+
+	// Compute recently-active flag for latest reading
+	if len(readings) > 0 {
+		now := time.Now()
+		tenMinutesAgo := now.Add(-10 * time.Minute)
+		recentlyActive := false
+
+		// Scan backwards through readings looking for rain in last 10 minutes
+		for i := len(readings) - 1; i >= 0; i-- {
+			if readings[i].Timestamp.Before(tenMinutesAgo) {
+				break
+			}
+			if readings[i].Rate > 0 || readings[i].Amount > 0 {
+				recentlyActive = true
+				break
+			}
+		}
+
+		readings[len(readings)-1].RecentlyActive = recentlyActive
 	}
 
 	if err := json.NewEncoder(w).Encode(readings); err != nil {
@@ -407,6 +595,26 @@ func handleLightning(w http.ResponseWriter, r *http.Request) {
 		log.Println("DB rows error (lightning):", err)
 		http.Error(w, "DB rows error", http.StatusInternalServerError)
 		return
+	}
+
+	// Compute recently-active flag for latest reading
+	if len(readings) > 0 {
+		now := time.Now()
+		tenMinutesAgo := now.Add(-10 * time.Minute)
+		recentlyActive := false
+
+		// Scan backwards through readings looking for strikes in last 10 minutes
+		for i := len(readings) - 1; i >= 0; i-- {
+			if readings[i].Timestamp.Before(tenMinutesAgo) {
+				break
+			}
+			if readings[i].Strikes > 0 {
+				recentlyActive = true
+				break
+			}
+		}
+
+		readings[len(readings)-1].RecentlyActive = recentlyActive
 	}
 
 	if err := json.NewEncoder(w).Encode(readings); err != nil {

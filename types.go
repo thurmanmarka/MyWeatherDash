@@ -9,6 +9,10 @@ type PingResponse struct {
 type BarometerReading struct {
 	Timestamp time.Time `json:"timestamp"`
 	Pressure  float64   `json:"pressure"` // inHg or mbar
+	// Computed fields (only on latest reading)
+	Trend    string `json:"trend,omitempty"`    // rapid-rise, slow-rise, steady, slow-fall, rapid-fall
+	Level    string `json:"level,omitempty"`    // high, normal, low
+	Forecast string `json:"forecast,omitempty"` // weather forecast based on trend+level
 }
 
 type WeatherReading struct {
@@ -21,6 +25,10 @@ type FeelsLikeReading struct {
 	Timestamp time.Time `json:"timestamp"`
 	HeatIndex float64   `json:"heatIndex"`
 	WindChill float64   `json:"windChill"`
+	// Computed fields (only on latest reading)
+	ActiveValue  float64 `json:"activeValue,omitempty"`  // The chosen feels-like value
+	ActiveSource string  `json:"activeSource,omitempty"` // "heat", "chill", or "air"
+	ActiveLabel  string  `json:"activeLabel,omitempty"`  // "Heat Index", "Wind Chill", or "Air Temp"
 }
 
 type HumidityReading struct {
@@ -33,17 +41,24 @@ type WindReading struct {
 	Speed     float64   `json:"speed"`     // windSpeed
 	Gust      float64   `json:"gust"`      // windGust
 	Direction *float64  `json:"direction"` // windDir (degrees), nil for calm/unknown
+	// Computed fields (only on latest reading)
+	Compass string `json:"compass,omitempty"` // N, NNE, NE, etc.
+	Strong  bool   `json:"strong,omitempty"`  // true if speed >= 20 mph or gust >= 25 mph
 }
 
 type RainReading struct {
 	Timestamp time.Time `json:"timestamp"`
 	Rate      float64   `json:"rate"`   // rainRate
 	Amount    float64   `json:"amount"` // rain (interval or total)
+	// Computed fields (only on latest reading)
+	RecentlyActive bool `json:"recentlyActive,omitempty"` // true if rain in last 10 minutes
 }
 
 type LightningReading struct {
 	Timestamp time.Time `json:"timestamp"`
 	Strikes   float64   `json:"strikes"`
+	// Computed fields (only on latest reading)
+	RecentlyActive bool `json:"recentlyActive,omitempty"` // true if lightning in last 10 minutes
 }
 
 type InsideTemperature struct {

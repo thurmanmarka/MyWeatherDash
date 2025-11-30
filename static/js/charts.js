@@ -336,89 +336,11 @@ async function loadBarometer() {
 
         latestBarometer = data[data.length - 1];
 
-        // Calculate barometer trend and level based on user criteria
-        let trend = 'steady';
-        let level = 'normal';
-        let forecast = 'conditions unchanged';
-        
-        if (data.length > 4) {
-            const current = data[data.length - 1].pressure;
-            const prior = data[data.length - 5].pressure;
-            const change = current - prior;
-            
-            // Determine pressure level
-            if (current > 30.20) {
-                level = 'high';
-            } else if (current < 29.80) {
-                level = 'low';
-            } else {
-                level = 'normal';
-            }
-            
-            // Determine rate of change (per hour)
-            // Assuming 5 intervals in data; typical WeeWX is 5-min intervals = 12 per hour
-            // So 5 intervals = ~25 minutes. Change per hour ≈ change * (60/25) = change * 2.4
-            const changePerHour = Math.abs(change) * 2.4;
-            
-            // Categorize trend based on rate
-            if (change > 0) {
-                if (changePerHour >= 0.06) {
-                    trend = 'rapid-rise';
-                } else if (changePerHour >= 0.02) {
-                    trend = 'slow-rise';
-                } else {
-                    trend = 'steady';
-                }
-            } else if (change < 0) {
-                if (changePerHour >= 0.06) {
-                    trend = 'rapid-fall';
-                } else if (changePerHour >= 0.02) {
-                    trend = 'slow-fall';
-                } else {
-                    trend = 'steady';
-                }
-            } else {
-                trend = 'steady';
-            }
-            
-            // Generate forecast based on level + trend
-            if (level === 'high') {
-                if (trend === 'steady' || trend === 'slow-rise') {
-                    forecast = 'Fair weather';
-                } else if (trend === 'rapid-rise') {
-                    forecast = 'Fair, improving';
-                } else if (trend === 'slow-fall') {
-                    forecast = 'Cloudy later';
-                } else if (trend === 'rapid-fall') {
-                    forecast = 'Warmer, cloudier';
-                }
-            } else if (level === 'normal') {
-                if (trend === 'steady' || trend === 'slow-rise') {
-                    forecast = 'Conditions continue';
-                } else if (trend === 'rapid-rise') {
-                    forecast = 'Improving';
-                } else if (trend === 'slow-fall') {
-                    forecast = 'Minor changes';
-                } else if (trend === 'rapid-fall') {
-                    forecast = 'Rain/snow likely';
-                }
-            } else if (level === 'low') {
-                if (trend === 'steady' || trend === 'slow-rise') {
-                    forecast = 'Cooler, clearing';
-                } else if (trend === 'rapid-rise') {
-                    forecast = 'Improving quickly';
-                } else if (trend === 'slow-fall') {
-                    forecast = 'Rain coming';
-                } else if (trend === 'rapid-fall') {
-                    forecast = 'Stormy weather';
-                }
-            }
-        }
-        
-        barometerTrend = trend;
-        barometerLevel = level;
-        barometerForecast = forecast;
-        console.log(`[Barometer] Level: ${level} | Trend: ${trend} | Forecast: ${forecast}`);
+        // Backend now computes trend, level, and forecast
+        barometerTrend = latestBarometer.trend || 'steady';
+        barometerLevel = latestBarometer.level || 'normal';
+        barometerForecast = latestBarometer.forecast || 'conditions unchanged';
+        console.log(`[Barometer] Level: ${barometerLevel} | Trend: ${barometerTrend} | Forecast: ${barometerForecast}`);
 
         const pressures = alignToMasterTimes(data, r => r.pressure);
         const labels    = masterTimes.map(() => '');
@@ -671,9 +593,6 @@ function renderHumidityChart(labels, hums, times) {
 }
 
 // WIND SECTION
-const WIND_STRONG_SPEED = 30;   // mph sustained (lowered for testing)
-const WIND_STRONG_GUST  = 45;   // mph gust (lowered for testing)
-
 async function loadWind() {
     // Clear out old state while loading
     latestWind = null;
@@ -711,26 +630,23 @@ async function loadWind() {
             latestWind = {
                 speed: last.speed,
                 gust:  typeof last.gust === 'number' ? last.gust : null,
-                direction: last.direction
+                direction: last.direction,
+                compass: last.compass || '--',
+                strong: last.strong || false
             };
         } else {
             latestWind = {
                 speed: 0,
                 gust:  null,
-                direction: null
+                direction: null,
+                compass: '--',
+                strong: false
             };
         }
 
-        // Decide if wind is "strong"
-        windStrong = false;
-        if (latestWind) {
-            const s = typeof latestWind.speed === 'number' ? latestWind.speed : 0;
-            const g = typeof latestWind.gust  === 'number' ? latestWind.gust  : 0;
-            if (s >= WIND_STRONG_SPEED || g >= WIND_STRONG_GUST) {
-                windStrong = true;
-            }
-            console.log('[Wind] Speed:', s.toFixed(1), 'mph | Gust:', g.toFixed(1), 'mph | Strong:', windStrong, '(thresholds: speed >=', WIND_STRONG_SPEED, ', gust >=', WIND_STRONG_GUST, ')');
-        }
+        // Backend now computes strong flag
+        windStrong = latestWind.strong;
+        console.log('[Wind] Speed:', latestWind.speed.toFixed(1), 'mph | Gust:', (latestWind.gust || 0).toFixed(1), 'mph | Strong:', windStrong);
 
         // Update CC panel with new latestWind + windStrong
         updateCurrentConditions();
@@ -1001,25 +917,20 @@ async function loadRain() {
 
         const data = await res.json();
 
-        // --- NEW / ENHANCED: compute Rain Today, current rate, and recent rain ---
+        // Compute Rain Today and current rate from data
         if (Array.isArray(data) && data.length > 0) {
             const now = new Date();
             const y = now.getFullYear();
             const m = now.getMonth();
             const d = now.getDate();
 
-            const nowMs = now.getTime();
-            const tenMinutesAgo = nowMs - 10 * 60 * 1000;
-
             let totalToday = 0;
             let lastRate = null;
-            let hasRecentRain = false;
 
             data.forEach((r, idx) => {
                 if (!r) return;
 
                 const t = new Date(r.timestamp);
-                const tMs = t.getTime();
 
                 // Today total
                 if (
@@ -1035,16 +946,14 @@ async function loadRain() {
                 if (typeof r.rate === 'number' && !Number.isNaN(r.rate)) {
                     lastRate = r.rate;
                 }
-
-                // Recent rain = any non-zero rate in last 10 minutes
-                if (typeof r.rate === 'number' && r.rate > 0 && tMs >= tenMinutesAgo && tMs <= nowMs) {
-                    hasRecentRain = true;
-                }
             });
+
+            // Backend now provides recentlyActive flag on latest reading
+            const latestReading = data[data.length - 1];
+            rainRecentlyActive = latestReading?.recentlyActive || false;
 
             rainToday = totalToday;
             latestRainRate = (typeof lastRate === 'number') ? lastRate : null;
-            rainRecentlyActive = hasRecentRain;
             console.log('[Rain] Today total:', totalToday.toFixed(2), 'in | Recent rate:', (latestRainRate || 0).toFixed(3), 'in/hr | Recently active:', rainRecentlyActive);
         } else {
             rainToday = null;
@@ -1054,7 +963,6 @@ async function loadRain() {
         }
 
         updateCurrentConditions();
-        // --- END NEW / ENHANCED BLOCK ---
 
         if (!Array.isArray(data) || data.length === 0 || !hasMasterTimes()) {
             console.warn('No rain data or no master timeline.');
@@ -1200,24 +1108,19 @@ async function loadLightning() {
 
         const data = await res.json();
 
-        // --- compute lightningToday and lightningRecentlyActive (your code) ---
+        // Compute lightningToday from data
         if (Array.isArray(data) && data.length > 0) {
             const now = new Date();
             const y = now.getFullYear();
             const m = now.getMonth();
             const d = now.getDate();
 
-            const nowMs = now.getTime();
-            const tenMinutesAgo = nowMs - 10 * 60 * 1000;
-
             let totalToday = 0;
-            let hasRecent = false;
 
             data.forEach(r => {
                 if (!r || typeof r.strikes !== 'number') return;
 
                 const t = new Date(r.timestamp);
-                const tMs = t.getTime();
 
                 if (
                     t.getFullYear() === y &&
@@ -1226,14 +1129,13 @@ async function loadLightning() {
                 ) {
                     totalToday += r.strikes;
                 }
-
-                if (r.strikes > 0 && tMs >= tenMinutesAgo && tMs <= nowMs) {
-                    hasRecent = true;
-                }
             });
 
+            // Backend now provides recentlyActive flag on latest reading
+            const latestReading = data[data.length - 1];
+            lightningRecentlyActive = latestReading?.recentlyActive || false;
+
             lightningToday = totalToday;
-            lightningRecentlyActive = hasRecent;
             console.log('[Lightning] Today total:', totalToday.toFixed(0), 'strikes | Recently active (10 min):', lightningRecentlyActive);
         } else {
             lightningToday = null;
@@ -1242,7 +1144,6 @@ async function loadLightning() {
         }
 
         updateCurrentConditions();
-        // --- END NEW BLOCK ---
 
         if (!Array.isArray(data) || data.length === 0) {
             console.warn('No lightning data for selected range.');

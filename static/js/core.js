@@ -212,21 +212,6 @@ if (window.Chart && Chart.defaults) {
     Chart.defaults.aspectRatio = 1.6;
 }
 
-// Compass Helper
-function degreesToCompass(deg) {
-    if (deg == null || isNaN(deg)) return '--';
-
-    const directions = [
-        "N","NNE","NE","ENE",
-        "E","ESE","SE","SSE",
-        "S","SSW","SW","WSW",
-        "W","WNW","NW","NNW"
-    ];
-
-    const index = Math.round(((deg % 360) / 22.5)) % 16;
-    return directions[index];
-}
-
 
 
 // ---------------------------------------------------------------------
@@ -440,27 +425,6 @@ Chart.register(windVectorPlugin, dayNightBackgroundPlugin);
 // ---------------------------------------------------------------------
 // Feels-like selection helper
 // ---------------------------------------------------------------------
-function pickFeelsLikeSource(tempF, heatIndexF, windChillF) {
-    const HEAT_THRESHOLD_F  = 80;
-    const CHILL_THRESHOLD_F = 50;
-
-    let activeValue = tempF;
-    let sourceLabel = 'Air Temp';
-    let sourceKey   = 'air';
-
-    if (!Number.isNaN(heatIndexF) && heatIndexF !== 0 && tempF >= HEAT_THRESHOLD_F) {
-        activeValue = heatIndexF;
-        sourceLabel = 'Heat Index';
-        sourceKey   = 'heat';
-    } else if (!Number.isNaN(windChillF) && windChillF !== 0 && tempF <= CHILL_THRESHOLD_F) {
-        activeValue = windChillF;
-        sourceLabel = 'Wind Chill';
-        sourceKey   = 'chill';
-    }
-
-    return { activeValue, sourceLabel, sourceKey };
-}
-
 // ---------------------------------------------------------------------
 // Range controls
 // ---------------------------------------------------------------------
@@ -546,11 +510,12 @@ function updateCurrentConditions() {
     const feelsRowEl = document.getElementById('cc-feels-row');
     const feelsIconEl = document.getElementById('cc-feels-icon');
 
-    if (latestWeather && latestFeelsLike) {
-        const t  = latestWeather.temperature;
-        const hi = latestFeelsLike.heatIndex;
-        const wc = latestFeelsLike.windChill;
-        const { activeValue, sourceLabel, sourceKey } = pickFeelsLikeSource(t, hi, wc);
+    if (latestFeelsLike && latestFeelsLike.activeValue != null) {
+        // Backend now provides activeValue, activeSource, activeLabel
+        const activeValue = latestFeelsLike.activeValue;
+        const sourceLabel = latestFeelsLike.activeLabel || 'Air Temp';
+        const sourceKey = latestFeelsLike.activeSource || 'air';
+        
         feelsLikeEl.textContent = activeValue.toFixed(1) + ' °F (' + sourceLabel + ')';
 
         // Swap icon based on active source
@@ -616,7 +581,8 @@ function updateCurrentConditions() {
             windEl.textContent = `${spd} mph  -- (--)°`;
         } else {
             const deg = latestWind.direction.toFixed(0);
-            const dir = degreesToCompass(latestWind.direction);
+            // Backend now provides compass direction
+            const dir = latestWind.compass || '--';
             windEl.textContent = `${spd} mph  ${dir} (${deg}°)`;
         }
     } else {
