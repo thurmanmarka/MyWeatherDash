@@ -425,13 +425,8 @@ async function loadFeelsLike() {
         const heatVals  = alignToMasterTimes(data, r => r.heatIndex);
         const chillVals = alignToMasterTimes(data, r => r.windChill);
 
-        let activeSource = 'air';
-        if (latestWeather && latestFeelsLike) {
-            const t  = latestWeather.temperature;
-            const hi = latestFeelsLike.heatIndex;
-            const wc = latestFeelsLike.windChill;
-            activeSource = pickFeelsLikeSource(t, hi, wc).sourceKey;
-        }
+        // Prefer backend-provided active source (heat/chill/air). Fallback to 'air'.
+        let activeSource = (latestFeelsLike && latestFeelsLike.activeSource) ? latestFeelsLike.activeSource : 'air';
 
         const labels = masterTimes.map(() => '');
         renderFeelsLikeChart(labels, heatVals, chillVals, activeSource, masterTimes);
@@ -1494,6 +1489,7 @@ function loadAll() {
             if (!hasMasterTimes()) return;
 
             return Promise.all([
+                loadCelestial(),
                 loadBarometer(),
                 loadFeelsLike(),
                 loadHumidity(),

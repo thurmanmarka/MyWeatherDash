@@ -14,6 +14,9 @@ let lightningChart = null;
 let insideTempChart = null;
 let insideHumidityChart = null;
 
+// Celestial data cache (from /api/celestial)
+let celestialData = null;
+
 // Latest samples for current-conditions panel
 let latestWeather = null;
 let latestBarometer = null;
@@ -40,6 +43,24 @@ const FEELS_EXTREME_COLD = 32; // °F wind chill threshold for alerting
 
 // Day / Week / Month selector
 let currentRange = 'day';
+
+// ---------------------------------------------------------------------
+// Celestial data loader
+// ---------------------------------------------------------------------
+async function loadCelestial() {
+    try {
+        const res = await fetch('/api/celestial');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        
+        const data = await res.json();
+        celestialData = data;
+        
+        console.log('[Celestial] Loaded data:', data);
+    } catch (err) {
+        console.error('Error loading celestial data:', err);
+        celestialData = null;
+    }
+}
 
 // ---------------------------------------------------------------------
 // Master time grid (driven by /api/weather)
@@ -306,68 +327,24 @@ const STATION_LAT = 32.093174;
 const STATION_LON = -110.777557;
 const STATION_TZ_OFFSET_HOURS = -7;
 
+// Replaced with backend API call - this is now a fallback/stub
 function computeSunTimes(dateLocal) {
-    const lat = STATION_LAT * Math.PI / 180;
-    const lon = STATION_LON;
-
-    const year  = dateLocal.getFullYear();
-    const theMonth = dateLocal.getMonth();
-    const day   = dateLocal.getDate();
-    const startOfYear = new Date(year, 0, 1);
-    const dayOfYear = Math.floor((dateLocal - startOfYear) / (24 * 3600 * 1000)) + 1;
-
-    const gamma = 2 * Math.PI / 365 * (dayOfYear - 1 + (dateLocal.getHours() - 12) / 24);
-
-    const eqTime =
-        229.18 * (
-            0.000075 +
-            0.001868 * Math.cos(gamma) -
-            0.032077 * Math.sin(gamma) -
-            0.014615 * Math.cos(2 * gamma) -
-            0.040849 * Math.sin(2 * gamma)
-        );
-
-    const decl =
-        0.006918 -
-        0.399912 * Math.cos(gamma) +
-        0.070257 * Math.sin(gamma) -
-        0.006758 * Math.cos(2 * gamma) +
-        0.000907 * Math.sin(2 * gamma) -
-        0.002697 * Math.cos(3 * gamma) +
-        0.00148  * Math.sin(3 * gamma);
-
-    const zenith = 90.833 * Math.PI / 180;
-    const cosH = (Math.cos(zenith) - Math.sin(lat) * Math.sin(decl)) /
-                     (Math.cos(lat) * Math.cos(decl));
-
-    if (cosH <= -1) {
+    // If we have celestial data from the API, use it
+    if (celestialData && celestialData.sunrise && celestialData.sunset) {
         return {
-            sunrise: new Date(year, theMonth, day, 0, 0, 0),
-            sunset:  new Date(year, theMonth, day, 23, 59, 59)
+            sunrise: new Date(celestialData.sunrise),
+            sunset: new Date(celestialData.sunset)
         };
     }
-    if (cosH >= 1) {
-        return {
-            sunrise: new Date(year, theMonth, day, 0, 0, 0),
-            sunset:  new Date(year, theMonth, day, 0, 0, 1)
-        };
-    }
-
-    const Hdeg = Math.acos(cosH) * 180 / Math.PI;
-
-    const sunriseMinutes = 720 - 4 * (lon + Hdeg) - eqTime;
-    const sunsetMinutes  = 720 - 4 * (lon - Hdeg) - eqTime;
-
-    function minutesToLocalDate(minutesUTC) {
-        const localMinutes = minutesUTC + STATION_TZ_OFFSET_HOURS * 60;
-        const hours = Math.floor(localMinutes / 60);
-        const mins  = Math.floor(localMinutes % 60);
-        return new Date(year, theMonth, day, hours, mins, 0);
-    }
-
+    
+    // Fallback: assume 6am sunrise, 6pm sunset if API data unavailable
+    const year = dateLocal.getFullYear();
+    const month = dateLocal.getMonth();
+    const day = dateLocal.getDate();
+    
     return {
-        sunrise: minutesToLocalDate(sunriseMinutes),
-        sunset:  minutesToLocalDate(sunsetMinutes)
+        sunrise: new Date(year, month, day, 6, 0, 0),
+        sunset: new Date(year, month, day, 18, 0, 0)
     };
 }
 
@@ -388,14 +365,20 @@ const dayNightBackgroundPlugin = {
         const top    = chartArea.top;
         const height = chartArea.bottom - chartArea.top;
 
-        const sunCache = {};
+        // Use celestial data if available, otherwise fall back to computed times
         const getSunTimesFor = (tsMs) => {
-            const d = new Date(tsMs);
-            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            if (!sunCache[key]) {
-                sunCache[key] = computeSunTimes(d);
+            if (celestialData && celestialData.sunrise && celestialData.sunset) {
+                return {
+                    sunrise: new Date(celestialData.sunrise),
+                    sunset: new Date(celestialData.sunset)
+                };
             }
-            return sunCache[key];
+            // Fallback: simple 6am/6pm estimate
+            const d = new Date(tsMs);
+            return {
+                sunrise: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 6, 0, 0),
+                sunset: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 18, 0, 0)
+            };
         };
 
         ctx.save();
@@ -702,4 +685,176 @@ if (windRowEl) {
             console.log('[UI] Lightning icon: cc-pulse class REMOVED');
         }
     }
+
+    // Celestial data (sunrise/sunset, moon phase, etc.)
+    updateCelestialDisplay();
 }
+
+function updateCelestialDisplay() {
+    if (!celestialData) return;
+
+    const sunriseSunsetEl = document.getElementById('cc-sunrise-sunset');
+    const moonPhaseEl = document.getElementById('cc-moon-phase');
+    const moonriseMoonsetEl = document.getElementById('cc-moonrise-moonset');
+    const civilTwilightEl = document.getElementById('cc-civil-twilight');
+    const nauticalTwilightEl = document.getElementById('cc-nautical-twilight');
+    const astronomicalTwilightEl = document.getElementById('cc-astronomical-twilight');
+    const goldenHourMorningEl = document.getElementById('cc-golden-hour-morning');
+    const goldenHourEveningEl = document.getElementById('cc-golden-hour-evening');
+    const blueHourMorningEl = document.getElementById('cc-blue-hour-morning');
+    const blueHourEveningEl = document.getElementById('cc-blue-hour-evening');
+    const moonPhaseIconEl = document.getElementById('cc-moon-phase-icon');
+
+    // Format ISO timestamp to 24-hour HH:MM
+    const formatTime24FromISO = (timeStr) => {
+        if (!timeStr) return '--';
+        // If already a short 24h string provided by backend (e.g. "07:08"), return it
+        if (typeof timeStr === 'string' && /^\d{1,2}:\d{2}$/.test(timeStr)) {
+            // Ensure zero-padded hour
+            const parts = timeStr.split(':');
+            return parts[0].padStart(2, '0') + ':' + parts[1];
+        }
+        const d = new Date(timeStr);
+        if (isNaN(d.getTime())) return '--';
+        return formatTime24(d);
+    };
+
+    // Sunrise / Sunset (prefer backend 24-hour fields)
+    if (sunriseSunsetEl) {
+        const sunrise = celestialData.sunrise24 ? celestialData.sunrise24 : formatTime24FromISO(celestialData.sunrise);
+        const sunset  = celestialData.sunset24  ? celestialData.sunset24  : formatTime24FromISO(celestialData.sunset);
+        sunriseSunsetEl.textContent = `${sunrise} / ${sunset}`;
+    }
+
+    // Moon Phase
+    if (moonPhaseEl && celestialData.moonPhase) {
+        const fraction = (celestialData.moonPhase.fraction * 100).toFixed(0);
+        moonPhaseEl.textContent = `${celestialData.moonPhase.name} (${fraction}%)`;
+        
+        // Update moon icon based on phase
+        if (moonPhaseIconEl) {
+            const svg = getMoonPhaseSVG(celestialData.moonPhase.fraction);
+            moonPhaseIconEl.innerHTML = svg;
+        }
+    } else if (moonPhaseEl) {
+        moonPhaseEl.textContent = '--';
+    }
+
+    // Moonrise / Moonset (24-hour)
+    if (moonriseMoonsetEl) {
+        const moonrise = celestialData.moonrise24 ? celestialData.moonrise24 : formatTime24FromISO(celestialData.moonrise);
+        const moonset  = celestialData.moonset24  ? celestialData.moonset24  : formatTime24FromISO(celestialData.moonset);
+        moonriseMoonsetEl.textContent = `${moonrise} / ${moonset}`;
+    }
+
+    // Civil Twilight (24-hour)
+    if (civilTwilightEl) {
+        const dawn = celestialData.civilDawn24 ? celestialData.civilDawn24 : formatTime24FromISO(celestialData.civilDawn);
+        const dusk = celestialData.civilDusk24 ? celestialData.civilDusk24 : formatTime24FromISO(celestialData.civilDusk);
+        civilTwilightEl.textContent = `${dawn} / ${dusk}`;
+    }
+
+    // Nautical Twilight (24-hour)
+    if (nauticalTwilightEl) {
+        const ndawn = celestialData.nauticalDawn24 ? celestialData.nauticalDawn24 : formatTime24FromISO(celestialData.nauticalDawn);
+        const ndusk = celestialData.nauticalDusk24 ? celestialData.nauticalDusk24 : formatTime24FromISO(celestialData.nauticalDusk);
+        nauticalTwilightEl.textContent = `${ndawn} / ${ndusk}`;
+    }
+
+    // Astronomical Twilight (24-hour)
+    if (astronomicalTwilightEl) {
+        const adawn = celestialData.astronomicalDawn24 ? celestialData.astronomicalDawn24 : formatTime24FromISO(celestialData.astronomicalDawn);
+        const adusk = celestialData.astronomicalDusk24 ? celestialData.astronomicalDusk24 : formatTime24FromISO(celestialData.astronomicalDusk);
+        astronomicalTwilightEl.textContent = `${adawn} / ${adusk}`;
+    }
+
+    // Golden Hour - split into morning/evening rows
+    if (goldenHourMorningEl) {
+        let mornText = '--';
+        if (celestialData.goldenHourMorningStart24 && celestialData.goldenHourMorningEnd24) {
+            mornText = `${celestialData.goldenHourMorningStart24}-${celestialData.goldenHourMorningEnd24}`;
+        } else if (celestialData.goldenHourMorningStart && celestialData.goldenHourMorningEnd) {
+            const start = formatTime24FromISO(celestialData.goldenHourMorningStart);
+            const end = formatTime24FromISO(celestialData.goldenHourMorningEnd);
+            mornText = `${start}-${end}`;
+        }
+        goldenHourMorningEl.textContent = mornText;
+    }
+
+    if (goldenHourEveningEl) {
+        let eveText = '--';
+        if (celestialData.goldenHourEveningStart24 && celestialData.goldenHourEveningEnd24) {
+            eveText = `${celestialData.goldenHourEveningStart24}-${celestialData.goldenHourEveningEnd24}`;
+        } else if (celestialData.goldenHourEveningStart && celestialData.goldenHourEveningEnd) {
+            const start = formatTime24FromISO(celestialData.goldenHourEveningStart);
+            const end = formatTime24FromISO(celestialData.goldenHourEveningEnd);
+            eveText = `${start}-${end}`;
+        }
+        goldenHourEveningEl.textContent = eveText;
+    }
+
+    // Blue Hour - split into morning/evening rows
+    if (blueHourMorningEl) {
+        let bmText = '--';
+        if (celestialData.blueHourMorningStart24 && celestialData.blueHourMorningEnd24) {
+            bmText = `${celestialData.blueHourMorningStart24}-${celestialData.blueHourMorningEnd24}`;
+        } else if (celestialData.blueHourMorningStart && celestialData.blueHourMorningEnd) {
+            const start = formatTime24FromISO(celestialData.blueHourMorningStart);
+            const end = formatTime24FromISO(celestialData.blueHourMorningEnd);
+            bmText = `${start}-${end}`;
+        }
+        blueHourMorningEl.textContent = bmText;
+    }
+
+    if (blueHourEveningEl) {
+        let beText = '--';
+        if (celestialData.blueHourEveningStart24 && celestialData.blueHourEveningEnd24) {
+            beText = `${celestialData.blueHourEveningStart24}-${celestialData.blueHourEveningEnd24}`;
+        } else if (celestialData.blueHourEveningStart && celestialData.blueHourEveningEnd) {
+            const start = formatTime24FromISO(celestialData.blueHourEveningStart);
+            const end = formatTime24FromISO(celestialData.blueHourEveningEnd);
+            beText = `${start}-${end}`;
+        }
+        blueHourEveningEl.textContent = beText;
+    }
+}
+
+function getMoonPhaseSVG(fraction) {
+    // Return different moon phase SVGs based on illumination
+    if (fraction < 0.05) {
+        // New Moon (dark circle)
+        return `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="#1e293b"/></svg>`;
+    } else if (fraction < 0.25) {
+        // Waxing Crescent
+        return `<svg viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.5" fill="none" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+    } else if (fraction < 0.35) {
+        // First Quarter
+        return `<svg viewBox="0 0 24 24"><path d="M12 4 A8 8 0 0 1 12 20 L12 4" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`;
+    } else if (fraction < 0.65) {
+        // Waxing Gibbous / Full
+        return `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="currentColor"/></svg>`;
+    } else if (fraction < 0.75) {
+        // Last Quarter
+        return `<svg viewBox="0 0 24 24"><path d="M12 4 A8 8 0 0 0 12 20 L12 4" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`;
+    } else {
+        // Waning Crescent
+        return `<svg viewBox="0 0 24 24"><path stroke="currentColor" stroke-width="1.5" fill="none" d="M3 11.21A9 9 0 0 0 12.79 21 7 7 0 0 1 3 11.21z"/></svg>`;
+    }
+}
+
+// Celestial details toggle
+document.addEventListener('DOMContentLoaded', () => {
+    const toggleBtn = document.getElementById('cc-celestial-toggle');
+    const detailRows = document.querySelectorAll('.cc-celestial-details');
+    
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            const isHidden = detailRows[0]?.style.display === 'none';
+            detailRows.forEach(row => {
+                row.style.display = isHidden ? 'flex' : 'none';
+            });
+            toggleBtn.textContent = isHidden ? 'Hide Details ▲' : 'Show Details ▼';
+        });
+    }
+});
+

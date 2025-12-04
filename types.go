@@ -71,6 +71,65 @@ type InsideHumidityReading struct {
 	InsideHumidity float64   `json:"inside_humidity"`
 }
 
+type CelestialData struct {
+	Date       string     `json:"date"`                // YYYY-MM-DD
+	Timezone   string     `json:"timezone"`            // e.g. "America/Phoenix"
+	Sunrise    *time.Time `json:"sunrise,omitempty"`   // Local time
+	Sunset     *time.Time `json:"sunset,omitempty"`    // Local time
+	Sunrise24  string     `json:"sunrise24,omitempty"` // Local time formatted HH:MM (24h)
+	Sunset24   string     `json:"sunset24,omitempty"`  // Local time formatted HH:MM (24h)
+	Moonrise   *time.Time `json:"moonrise,omitempty"`  // Local time
+	Moonset    *time.Time `json:"moonset,omitempty"`   // Local time
+	Moonrise24 string     `json:"moonrise24,omitempty"`
+	Moonset24  string     `json:"moonset24,omitempty"`
+	MoonPhase  *MoonPhase `json:"moonPhase,omitempty"` // Current phase
+
+	// Twilight times (civil dawn/dusk at -6°)
+	CivilDawn   *time.Time `json:"civilDawn,omitempty"`
+	CivilDusk   *time.Time `json:"civilDusk,omitempty"`
+	CivilDawn24 string     `json:"civilDawn24,omitempty"`
+	CivilDusk24 string     `json:"civilDusk24,omitempty"`
+
+	// Nautical twilight (-12°)
+	NauticalDawn   *time.Time `json:"nauticalDawn,omitempty"`
+	NauticalDusk   *time.Time `json:"nauticalDusk,omitempty"`
+	NauticalDawn24 string     `json:"nauticalDawn24,omitempty"`
+	NauticalDusk24 string     `json:"nauticalDusk24,omitempty"`
+
+	// Astronomical twilight (-18°)
+	AstronomicalDawn   *time.Time `json:"astronomicalDawn,omitempty"`
+	AstronomicalDusk   *time.Time `json:"astronomicalDusk,omitempty"`
+	AstronomicalDawn24 string     `json:"astronomicalDawn24,omitempty"`
+	AstronomicalDusk24 string     `json:"astronomicalDusk24,omitempty"`
+
+	// Golden hour windows (Sun altitude -4° to +6°)
+	GoldenHourMorningStart   *time.Time `json:"goldenHourMorningStart,omitempty"`
+	GoldenHourMorningEnd     *time.Time `json:"goldenHourMorningEnd,omitempty"`
+	GoldenHourEveningStart   *time.Time `json:"goldenHourEveningStart,omitempty"`
+	GoldenHourEveningEnd     *time.Time `json:"goldenHourEveningEnd,omitempty"`
+	GoldenHourMorningStart24 string     `json:"goldenHourMorningStart24,omitempty"`
+	GoldenHourMorningEnd24   string     `json:"goldenHourMorningEnd24,omitempty"`
+	GoldenHourEveningStart24 string     `json:"goldenHourEveningStart24,omitempty"`
+	GoldenHourEveningEnd24   string     `json:"goldenHourEveningEnd24,omitempty"`
+
+	// Blue hour windows (Sun altitude -6° to -4°)
+	BlueHourMorningStart   *time.Time `json:"blueHourMorningStart,omitempty"`
+	BlueHourMorningEnd     *time.Time `json:"blueHourMorningEnd,omitempty"`
+	BlueHourEveningStart   *time.Time `json:"blueHourEveningStart,omitempty"`
+	BlueHourEveningEnd     *time.Time `json:"blueHourEveningEnd,omitempty"`
+	BlueHourMorningStart24 string     `json:"blueHourMorningStart24,omitempty"`
+	BlueHourMorningEnd24   string     `json:"blueHourMorningEnd24,omitempty"`
+	BlueHourEveningStart24 string     `json:"blueHourEveningStart24,omitempty"`
+	BlueHourEveningEnd24   string     `json:"blueHourEveningEnd24,omitempty"`
+}
+
+type MoonPhase struct {
+	Fraction   float64 `json:"fraction"`   // 0.0 = new, 1.0 = full
+	Elongation float64 `json:"elongation"` // degrees
+	Waxing     bool    `json:"waxing"`     // true if waxing
+	Name       string  `json:"name"`       // e.g. "Waxing Gibbous"
+}
+
 // StatisticsData holds aggregated metrics for today and the selected range
 type StatisticsData struct {
 	// Rain

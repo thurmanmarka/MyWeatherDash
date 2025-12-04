@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/thurmanmarka/astroglide"
 )
 
 // -------------------- helpers --------------------
@@ -1197,6 +1199,179 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		http.Error(w, "JSON error", http.StatusInternalServerError)
+	}
+}
+
+// -------------------- /api/celestial --------------------
+
+func handleCelestial(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Parse date parameter (defaults to today in local time)
+	dateStr := r.URL.Query().Get("date")
+
+	// Use Rita Ranch, AZ coordinates (from config or hardcoded)
+	coords := astroglide.Coordinates{
+		Lat: 32.093174,   // Rita Ranch latitude
+		Lon: -110.777557, // Rita Ranch longitude (west is negative)
+	}
+
+	// Load MST/America/Phoenix timezone
+	loc, err := time.LoadLocation("America/Phoenix")
+	if err != nil {
+		log.Println("Failed to load America/Phoenix timezone:", err)
+		http.Error(w, "Timezone error", http.StatusInternalServerError)
+		return
+	}
+
+	var date time.Time
+	if dateStr == "" {
+		// Default to today
+		now := time.Now().In(loc)
+		date = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	} else {
+		// Parse YYYY-MM-DD format
+		parsed, err := time.ParseInLocation("2006-01-02", dateStr, loc)
+		if err != nil {
+			log.Println("Invalid date parameter:", dateStr, err)
+			http.Error(w, "Invalid date format (use YYYY-MM-DD)", http.StatusBadRequest)
+			return
+		}
+		date = parsed
+	}
+
+	// Compute sun rise/set using astroglide
+	sunRS, err := astroglide.RiseSetFor(astroglide.Sun, coords, date)
+	if err != nil && err != astroglide.ErrNoRiseNoSet {
+		log.Println("Error computing sunrise/sunset:", err)
+		http.Error(w, "Sun calculation error", http.StatusInternalServerError)
+		return
+	}
+
+	// Compute moon rise/set using astroglide
+	moonRS, err := astroglide.RiseSetFor(astroglide.Moon, coords, date)
+	if err != nil && err != astroglide.ErrNoRiseNoSet {
+		log.Println("Error computing moonrise/moonset:", err)
+		http.Error(w, "Moon calculation error", http.StatusInternalServerError)
+		return
+	}
+
+	// Compute moon phase at current time (or noon on the requested date)
+	noonTime := time.Date(date.Year(), date.Month(), date.Day(), 12, 0, 0, 0, loc)
+	moonPhase, err := astroglide.MoonPhaseAt(noonTime)
+	if err != nil {
+		log.Println("Error computing moon phase:", err)
+		// Non-fatal, continue without phase data
+	}
+
+	// Compute twilight times
+	civilTwilight, _ := astroglide.TwilightFor(coords, date, astroglide.TwilightCivil)
+	nauticalTwilight, _ := astroglide.TwilightFor(coords, date, astroglide.TwilightNautical)
+	astronomicalTwilight, _ := astroglide.TwilightFor(coords, date, astroglide.TwilightAstronomical)
+
+	// Compute golden hour and blue hour
+	goldenHour, _ := astroglide.GoldenHourFor(coords, date)
+	blueHour, _ := astroglide.BlueHourFor(coords, date)
+
+	// Build response
+	celestial := CelestialData{
+		Date:     date.Format("2006-01-02"),
+		Timezone: loc.String(),
+	}
+
+	// Only include rise/set if they exist
+	if err == nil || err == astroglide.ErrNoRiseNoSet {
+		if !sunRS.Rise.IsZero() {
+			celestial.Sunrise = &sunRS.Rise
+			celestial.Sunrise24 = sunRS.Rise.In(loc).Format("15:04")
+		}
+		if !sunRS.Set.IsZero() {
+			celestial.Sunset = &sunRS.Set
+			celestial.Sunset24 = sunRS.Set.In(loc).Format("15:04")
+		}
+	}
+
+	if err == nil || err == astroglide.ErrNoRiseNoSet {
+		if !moonRS.Rise.IsZero() {
+			celestial.Moonrise = &moonRS.Rise
+			celestial.Moonrise24 = moonRS.Rise.In(loc).Format("15:04")
+		}
+		if !moonRS.Set.IsZero() {
+			celestial.Moonset = &moonRS.Set
+			celestial.Moonset24 = moonRS.Set.In(loc).Format("15:04")
+		}
+	}
+
+	// Add moon phase if available
+	if err == nil {
+		celestial.MoonPhase = &MoonPhase{
+			Fraction:   moonPhase.Fraction,
+			Elongation: moonPhase.Elongation,
+			Waxing:     moonPhase.Waxing,
+			Name:       moonPhase.Name,
+		}
+	}
+
+	// Add civil twilight
+	if !civilTwilight.Rise.IsZero() {
+		celestial.CivilDawn = &civilTwilight.Rise
+		celestial.CivilDawn24 = civilTwilight.Rise.In(loc).Format("15:04")
+	}
+	if !civilTwilight.Set.IsZero() {
+		celestial.CivilDusk = &civilTwilight.Set
+		celestial.CivilDusk24 = civilTwilight.Set.In(loc).Format("15:04")
+	}
+
+	// Add nautical twilight
+	if !nauticalTwilight.Rise.IsZero() {
+		celestial.NauticalDawn = &nauticalTwilight.Rise
+		celestial.NauticalDawn24 = nauticalTwilight.Rise.In(loc).Format("15:04")
+	}
+	if !nauticalTwilight.Set.IsZero() {
+		celestial.NauticalDusk = &nauticalTwilight.Set
+		celestial.NauticalDusk24 = nauticalTwilight.Set.In(loc).Format("15:04")
+	}
+
+	// Add astronomical twilight
+	if !astronomicalTwilight.Rise.IsZero() {
+		celestial.AstronomicalDawn = &astronomicalTwilight.Rise
+		celestial.AstronomicalDawn24 = astronomicalTwilight.Rise.In(loc).Format("15:04")
+	}
+	if !astronomicalTwilight.Set.IsZero() {
+		celestial.AstronomicalDusk = &astronomicalTwilight.Set
+		celestial.AstronomicalDusk24 = astronomicalTwilight.Set.In(loc).Format("15:04")
+	}
+
+	// Add golden hour
+	if goldenHour.HasMorning {
+		celestial.GoldenHourMorningStart = &goldenHour.Morning.Start
+		celestial.GoldenHourMorningEnd = &goldenHour.Morning.End
+		celestial.GoldenHourMorningStart24 = goldenHour.Morning.Start.In(loc).Format("15:04")
+		celestial.GoldenHourMorningEnd24 = goldenHour.Morning.End.In(loc).Format("15:04")
+	}
+	if goldenHour.HasEvening {
+		celestial.GoldenHourEveningStart = &goldenHour.Evening.Start
+		celestial.GoldenHourEveningEnd = &goldenHour.Evening.End
+		celestial.GoldenHourEveningStart24 = goldenHour.Evening.Start.In(loc).Format("15:04")
+		celestial.GoldenHourEveningEnd24 = goldenHour.Evening.End.In(loc).Format("15:04")
+	}
+
+	// Add blue hour
+	if blueHour.HasMorning {
+		celestial.BlueHourMorningStart = &blueHour.Morning.Start
+		celestial.BlueHourMorningEnd = &blueHour.Morning.End
+		celestial.BlueHourMorningStart24 = blueHour.Morning.Start.In(loc).Format("15:04")
+		celestial.BlueHourMorningEnd24 = blueHour.Morning.End.In(loc).Format("15:04")
+	}
+	if blueHour.HasEvening {
+		celestial.BlueHourEveningStart = &blueHour.Evening.Start
+		celestial.BlueHourEveningEnd = &blueHour.Evening.End
+		celestial.BlueHourEveningStart24 = blueHour.Evening.Start.In(loc).Format("15:04")
+		celestial.BlueHourEveningEnd24 = blueHour.Evening.End.In(loc).Format("15:04")
+	}
+
+	if err := json.NewEncoder(w).Encode(celestial); err != nil {
 		http.Error(w, "JSON error", http.StatusInternalServerError)
 	}
 }
