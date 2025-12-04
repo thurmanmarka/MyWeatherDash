@@ -11,8 +11,22 @@ import (
 	"strings"
 	"time"
 
+	"sync"
+
 	"github.com/thurmanmarka/astroglide"
 )
+
+// cachedCelestial holds a computed CelestialData and an expiry time
+type cachedCelestial struct {
+	data   CelestialData
+	expiry time.Time
+}
+
+// celestialCache stores cached celestial results keyed by date+timezone
+var celestialCache = struct {
+	sync.RWMutex
+	m map[string]*cachedCelestial
+}{m: make(map[string]*cachedCelestial)}
 
 // -------------------- helpers --------------------
 
@@ -1241,6 +1255,17 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 		date = parsed
 	}
 
+	// Cache key is date + timezone to support different locales if requested
+	cacheKey := date.Format("2006-01-02") + "|" + loc.String()
+	celestialCache.RLock()
+	if ce, ok := celestialCache.m[cacheKey]; ok && time.Now().Before(ce.expiry) {
+		// Serve cached response
+		_ = json.NewEncoder(w).Encode(ce.data)
+		celestialCache.RUnlock()
+		return
+	}
+	celestialCache.RUnlock()
+
 	// Compute sun rise/set using astroglide
 	sunRS, err := astroglide.RiseSetFor(astroglide.Sun, coords, date)
 	if err != nil && err != astroglide.ErrNoRiseNoSet {
@@ -1370,6 +1395,14 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 		celestial.BlueHourEveningStart24 = blueHour.Evening.Start.In(loc).Format("15:04")
 		celestial.BlueHourEveningEnd24 = blueHour.Evening.End.In(loc).Format("15:04")
 	}
+
+	// Cache the result until the next local midnight for the requested date
+	// Compute next midnight explicitly in the request's location to avoid timezone issues.
+	nextMidnight := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc).Add(24 * time.Hour)
+	expiry := nextMidnight
+	celestialCache.Lock()
+	celestialCache.m[cacheKey] = &cachedCelestial{data: celestial, expiry: expiry}
+	celestialCache.Unlock()
 
 	if err := json.NewEncoder(w).Encode(celestial); err != nil {
 		http.Error(w, "JSON error", http.StatusInternalServerError)
