@@ -1228,19 +1228,63 @@
      (function() {
          const html = document.documentElement;
          const themeToggle = document.getElementById('themeToggle');
+         let autoThemeEnabled = localStorage.getItem('autoTheme') !== 'false'; // Default to enabled
+         
+         // Check if we should auto-switch based on celestial data
+         function checkAutoTheme() {
+             if (!autoThemeEnabled) return;
+             
+             if (window.celestialData && window.celestialData.sunrise && window.celestialData.sunset) {
+                 const now = new Date();
+                 const sunrise = new Date(window.celestialData.sunrise);
+                 const sunset = new Date(window.celestialData.sunset);
+                 
+                 // Auto-switch to dark mode after sunset or before sunrise
+                 const shouldBeDark = now < sunrise || now > sunset;
+                 const autoTheme = shouldBeDark ? 'dark' : 'light';
+                 
+                 // Only auto-switch if user hasn't manually overridden recently
+                 const manualOverride = localStorage.getItem('manualThemeOverride');
+                 const overrideTime = manualOverride ? parseInt(localStorage.getItem('manualThemeOverrideTime') || '0') : 0;
+                 const timeSinceOverride = Date.now() - overrideTime;
+                 
+                 // Clear manual override after 1 hour or at next sunrise/sunset transition
+                 if (manualOverride && timeSinceOverride > 3600000) {
+                     localStorage.removeItem('manualThemeOverride');
+                     localStorage.removeItem('manualThemeOverrideTime');
+                 }
+                 
+                 if (!manualOverride) {
+                     setTheme(autoTheme, false);
+                 }
+             }
+         }
+         
+         // Set theme with optional manual flag
+         function setTheme(theme, isManual = false) {
+             html.setAttribute('data-theme', theme);
+             localStorage.setItem('theme', theme);
+             updateThemeIcon(theme);
+             
+             if (isManual) {
+                 localStorage.setItem('manualThemeOverride', theme);
+                 localStorage.setItem('manualThemeOverrideTime', Date.now().toString());
+             }
+         }
          
          // Load saved theme preference or default to light
          const savedTheme = localStorage.getItem('theme') || 'light';
-         html.setAttribute('data-theme', savedTheme);
-         updateThemeIcon(savedTheme);
+         setTheme(savedTheme, false);
          
-         // Toggle theme on button click
+         // Check auto theme on load and periodically
+         checkAutoTheme();
+         setInterval(checkAutoTheme, 60000); // Check every minute
+         
+         // Toggle theme on button click (manual override)
          themeToggle.addEventListener('click', function() {
              const currentTheme = html.getAttribute('data-theme');
              const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-             html.setAttribute('data-theme', newTheme);
-             localStorage.setItem('theme', newTheme);
-             updateThemeIcon(newTheme);
+             setTheme(newTheme, true);
          });
          
          function updateThemeIcon(theme) {
