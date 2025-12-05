@@ -292,9 +292,8 @@ function renderWeatherChart(labels, temps, dews, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
             scales: {
@@ -380,9 +379,8 @@ function renderBarometerChart(labels, pressures, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
             scales: {
@@ -480,9 +478,8 @@ function renderFeelsLikeChart(labels, heatVals, chillVals, activeSource, times) 
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
             scales: {
@@ -562,9 +559,8 @@ function renderHumidityChart(labels, hums, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
             scales: {
@@ -695,9 +691,8 @@ function renderWindChart(labels, speeds, gusts, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
             scales: {
@@ -787,9 +782,8 @@ function renderWindVectorChart(speeds, dirs, times) {
                     }
                 },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: avgTimes.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: avgTimes.map(t => t.getTime())
                 },
                 windVector: {
                     speeds: avgVectors.map(v => v ? v.speed : null),
@@ -893,9 +887,8 @@ function renderWindDirectionChart(labels, dirs, speeds, times) {
                     }
                 },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             }
         }
@@ -1007,9 +1000,8 @@ function renderRainAmountChart(labels, amounts, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: true },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
             scales: {
@@ -1072,9 +1064,8 @@ function renderRainRateChart(labels, rates, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: true },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
                 scales: {
@@ -1230,16 +1221,6 @@ function renderLightningChart(labels, values, range, times) {
         yMax = Math.ceil(maxValRaw / 5) * 5;
     }
 
-    // Build a proper time grid for day/night shading
-    let shadingTimesMs;
-
-    if (range === 'day') {
-        // For day range we expect 'times' to be hour starts (length 24). Use them directly.
-        shadingTimesMs = times.map(t => t.getTime());
-    } else {
-            shadingTimesMs = times.map(t => t.getTime());
-    }
-
     lightningChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1254,8 +1235,8 @@ function renderLightningChart(labels, values, range, times) {
                     backgroundColor: ctx => {
                         const v = ctx.raw ?? ctx.parsed.y;
                         if (v == null || isNaN(v)) return 'rgba(0,0,0,0)';
-                        if (v === 0) return 'rgba(148, 163, 184, 0.2)';  // very light grey for 0
-                        return 'rgba(251, 191, 36, 0.85)';                 // yellow/amber for strikes
+                        if (v === 0) return 'rgba(148, 163, 184, 0.2)';
+                        return 'rgba(251, 191, 36, 0.85)';
                     },
                     borderRadius: 3,
                     barPercentage: range === 'day' ? 0.9 : 0.6,
@@ -1269,49 +1250,41 @@ function renderLightningChart(labels, values, range, times) {
             plugins: {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: {
-                        enabled: true,
-                        callbacks: {
-                            label(ctx) {
-                                const v = ctx.parsed.y;
-                                return `Strikes: ${v}`;
-                            }
+                    enabled: true,
+                    callbacks: {
+                        label(ctx) {
+                            const v = ctx.parsed.y;
+                            return `Strikes: ${v}`;
                         }
-                    },
-                    dayNightBackground: {
-                        enabled: range === 'day',
-                        times: shadingTimesMs,
-                        fillStyle: 'rgba(148, 163, 184, 0.16)'
                     }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: yMax,
-                        title: {
-                            display: true,
-                            text: range === 'day'
-                                ? 'Strikes per Hour'
-                                : 'Strikes per Day'
-                        },
-                        ticks: {
-                            maxTicksLimit: 6,
-                            precision: 0
-                        },
-                        grid: { color: 'rgba(148, 163, 184, 0.25)' }
+                dayNightBackground: {
+                    enabled: range === 'day',
+                    times: times.map(t => t.getTime())
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: yMax,
+                    title: {
+                        display: true,
+                        text: range === 'day'
+                            ? 'Strikes per Hour'
+                            : 'Strikes per Day'
                     },
-                    x: {
+                    ticks: { maxTicksLimit: 6, precision: 0 },
+                    grid: { color: 'rgba(148, 163, 184, 0.25)' }
+                },
+                x: {
                     type: 'category',
-                    ticks: {
-                        maxTicksLimit: range === 'day' ? 8 : 7
-                    },
+                    ticks: { maxTicksLimit: range === 'day' ? 8 : 7 },
                     grid: { display: false }
                 }
             }
         }
     });
-}
-
-// ---------------------------------------------------------------------
+}// ---------------------------------------------------------------------
 // Inside Temperature (aligned to master timeline)
 // ---------------------------------------------------------------------
 async function loadInsideTemp() {
@@ -1371,9 +1344,8 @@ function renderInsideTempChart(labels, temps, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
             scales: {
@@ -1453,9 +1425,8 @@ function renderInsideHumidityChart(labels, inHums, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: currentRange === 'day',
-                    times: times.map(t => t.getTime()),
-                    fillStyle: 'rgba(148, 163, 184, 0.16)'
+                    enabled: true,
+                    times: times.map(t => t.getTime())
                 }
             },
             scales: {

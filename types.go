@@ -72,18 +72,19 @@ type InsideHumidityReading struct {
 }
 
 type CelestialData struct {
-	Date          string     `json:"date"`                    // YYYY-MM-DD
-	Timezone      string     `json:"timezone"`                // e.g. "America/Phoenix"
-	Sunrise       *time.Time `json:"sunrise,omitempty"`       // Local time
-	Sunset        *time.Time `json:"sunset,omitempty"`        // Local time
-	Sunrise24     string     `json:"sunrise24,omitempty"`     // Local time formatted HH:MM (24h)
-	Sunset24      string     `json:"sunset24,omitempty"`      // Local time formatted HH:MM (24h)
-	DaylightHours float64    `json:"daylightHours,omitempty"` // Hours of daylight (sunrise to sunset)
-	Moonrise      *time.Time `json:"moonrise,omitempty"`      // Local time
-	Moonset       *time.Time `json:"moonset,omitempty"`       // Local time
-	Moonrise24    string     `json:"moonrise24,omitempty"`
-	Moonset24     string     `json:"moonset24,omitempty"`
-	MoonPhase     *MoonPhase `json:"moonPhase,omitempty"` // Current phase
+	Date                   string     `json:"date"`                             // YYYY-MM-DD
+	Timezone               string     `json:"timezone"`                         // e.g. "America/Phoenix"
+	Sunrise                *time.Time `json:"sunrise,omitempty"`                // Local time
+	Sunset                 *time.Time `json:"sunset,omitempty"`                 // Local time
+	Sunrise24              string     `json:"sunrise24,omitempty"`              // Local time formatted HH:MM (24h)
+	Sunset24               string     `json:"sunset24,omitempty"`               // Local time formatted HH:MM (24h)
+	DaylightHours          float64    `json:"daylightHours,omitempty"`          // Hours of daylight (sunrise to sunset)
+	DaylightHoursFormatted string     `json:"daylightHoursFormatted,omitempty"` // Formatted as "Xh Ym"
+	Moonrise               *time.Time `json:"moonrise,omitempty"`               // Local time
+	Moonset                *time.Time `json:"moonset,omitempty"`                // Local time
+	Moonrise24             string     `json:"moonrise24,omitempty"`
+	Moonset24              string     `json:"moonset24,omitempty"`
+	MoonPhase              *MoonPhase `json:"moonPhase,omitempty"` // Current phase
 
 	// Twilight times (civil dawn/dusk at -6°)
 	CivilDawn   *time.Time `json:"civilDawn,omitempty"`
@@ -129,6 +130,7 @@ type MoonPhase struct {
 	Elongation float64 `json:"elongation"` // degrees
 	Waxing     bool    `json:"waxing"`     // true if waxing
 	Name       string  `json:"name"`       // e.g. "Waxing Gibbous"
+	Percentage int     `json:"percentage"` // Illumination percentage (0-100)
 }
 
 // StatisticsData holds aggregated metrics for today and the selected range

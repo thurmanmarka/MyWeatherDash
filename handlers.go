@@ -1369,6 +1369,10 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 	// Include daylight hours if calculation succeeded
 	if daylightErr == nil {
 		celestial.DaylightHours = daylightHours
+		// Format as "Xh Ym" for display
+		hours := int(daylightHours)
+		minutes := int((daylightHours - float64(hours)) * 60)
+		celestial.DaylightHoursFormatted = fmt.Sprintf("%dh %dm", hours, minutes)
 	}
 
 	if moonErr == nil || moonErr == astroglide.ErrNoRiseNoSet {
@@ -1384,11 +1388,13 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 
 	// Add moon phase if available
 	if phaseErr == nil {
+		percentage := int(moonPhase.Fraction * 100)
 		celestial.MoonPhase = &MoonPhase{
 			Fraction:   moonPhase.Fraction,
 			Elongation: moonPhase.Elongation,
 			Waxing:     moonPhase.Waxing,
 			Name:       moonPhase.Name,
+			Percentage: percentage,
 		}
 	}
 

@@ -14,6 +14,23 @@ let lightningChart = null;
 let insideTempChart = null;
 let insideHumidityChart = null;
 
+// Function to refresh all charts (useful when theme changes)
+function refreshAllCharts() {
+    const charts = [
+        weatherChart, barometerChart, feelsLikeChart, humidityChart,
+        windChart, windDirChart, windVectorChart, rainAmountChart,
+        rainRateChart, lightningChart, insideTempChart, insideHumidityChart
+    ];
+    charts.forEach(chart => {
+        if (chart) {
+            chart.update('none'); // 'none' = no animation
+        }
+    });
+}
+
+// Make refreshAllCharts available globally for theme toggle
+window.refreshAllCharts = refreshAllCharts;
+
 // Celestial data cache (from /api/celestial)
 let celestialData = null;
 
@@ -360,37 +377,69 @@ const dayNightBackgroundPlugin = {
         const timesMs = pluginOptions.times;
         if (!timesMs || timesMs.length < 2) return;
 
-        const fillStyle = pluginOptions.fillStyle || 'rgba(148, 163, 184, 0.16)';
+        // Detect current theme and use appropriate shading
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+        const fillStyle = isDarkMode 
+            ? 'rgba(0, 0, 0, 0.3)'  // Darker overlay for dark mode
+            : 'rgba(148, 163, 184, 0.16)';  // Light gray for light mode
 
         const top    = chartArea.top;
         const height = chartArea.bottom - chartArea.top;
 
-        // Use celestial data if available, otherwise fall back to computed times
-        const getSunTimesFor = (tsMs) => {
-            if (celestialData && celestialData.sunrise && celestialData.sunset) {
-                return {
-                    sunrise: new Date(celestialData.sunrise),
-                    sunset: new Date(celestialData.sunset)
-                };
-            }
-            // Fallback: simple 6am/6pm estimate
-            const d = new Date(tsMs);
-            return {
-                sunrise: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 6, 0, 0),
-                sunset: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 18, 0, 0)
-            };
-        };
+        // Use celestial data for sunrise/sunset times
+        let sunriseTime, sunsetTime;
+        if (celestialData && celestialData.sunrise && celestialData.sunset) {
+            sunriseTime = new Date(celestialData.sunrise);
+            sunsetTime = new Date(celestialData.sunset);
+        } else {
+            // Fallback: 6am sunrise, 6pm sunset
+            const now = new Date();
+            sunriseTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
+            sunsetTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0);
+        }
 
         ctx.save();
         ctx.fillStyle = fillStyle;
 
-        for (let i = 0; i < timesMs.length - 1; i++) {
-            const tMid = (timesMs[i] + timesMs[i + 1]) / 2;
-            const { sunrise, sunset } = getSunTimesFor(tMid);
+        // Get the chart's dataset to know how many data points we have
+        let datasetLength = 0;
+        
+        // For regular charts, use data.labels
+        if (chart.data.labels && chart.data.labels.length > 0) {
+            datasetLength = chart.data.labels.length;
+        }
+        // For scatter plots with category x-axis, check the scale configuration
+        else if (chart.config.type === 'scatter' && xScale.type === 'category') {
+            // Category scale stores labels in the scale itself after initialization
+            const scaleLabels = xScale.getLabels ? xScale.getLabels() : [];
+            datasetLength = scaleLabels.length;
+        }
+        
+        if (datasetLength === 0) {
+            ctx.restore();
+            return;
+        }
 
-            const isNight = tMid < sunrise.getTime() || tMid >= sunset.getTime();
+        for (let i = 0; i < datasetLength - 1; i++) {
+            // Use the provided times array to check if this period is night
+            if (i >= timesMs.length - 1) break;
+            
+            const tMid = (timesMs[i] + timesMs[i + 1]) / 2;
+            const currentDate = new Date(tMid);
+            
+            // Get hour of day for comparison
+            const hour = currentDate.getHours();
+            const minute = currentDate.getMinutes();
+            const timeInMinutes = hour * 60 + minute;
+            
+            const sunriseMinutes = sunriseTime.getHours() * 60 + sunriseTime.getMinutes();
+            const sunsetMinutes = sunsetTime.getHours() * 60 + sunsetTime.getMinutes();
+            
+            // Check if this time is before sunrise or after sunset
+            const isNight = timeInMinutes < sunriseMinutes || timeInMinutes >= sunsetMinutes;
             if (!isNight) continue;
 
+            // Use data indices for pixel calculation
             const xStart = xScale.getPixelForValue(i);
             const xEnd   = xScale.getPixelForValue(i + 1);
 
@@ -741,19 +790,24 @@ function updateCelestialDisplay() {
         sunriseSunsetEl.textContent = `${sunrise} / ${sunset}`;
     }
 
-    // Daylight Hours (formatted as HH:MM)
-    if (daylightHoursEl && celestialData.daylightHours) {
-        const hours = Math.floor(celestialData.daylightHours);
-        const minutes = Math.round((celestialData.daylightHours - hours) * 60);
-        daylightHoursEl.textContent = `${hours}h ${minutes}m`;
-    } else if (daylightHoursEl) {
-        daylightHoursEl.textContent = '--';
+    // Daylight Hours (use pre-formatted value from backend)
+    if (daylightHoursEl) {
+        if (celestialData.daylightHoursFormatted) {
+            daylightHoursEl.textContent = celestialData.daylightHoursFormatted;
+        } else if (celestialData.daylightHours) {
+            // Fallback to client-side formatting if backend doesn't provide formatted value
+            const hours = Math.floor(celestialData.daylightHours);
+            const minutes = Math.round((celestialData.daylightHours - hours) * 60);
+            daylightHoursEl.textContent = `${hours}h ${minutes}m`;
+        } else {
+            daylightHoursEl.textContent = '--';
+        }
     }
 
-    // Moon Phase
+    // Moon Phase (use pre-computed percentage from backend)
     if (moonPhaseEl && celestialData.moonPhase) {
-        const fraction = (celestialData.moonPhase.fraction * 100).toFixed(0);
-        moonPhaseEl.textContent = `${celestialData.moonPhase.name} (${fraction}%)`;
+        const percentage = celestialData.moonPhase.percentage || Math.round(celestialData.moonPhase.fraction * 100);
+        moonPhaseEl.textContent = `${celestialData.moonPhase.name} (${percentage}%)`;
         
         // Update moon icon based on phase
         if (moonPhaseIconEl) {

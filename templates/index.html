@@ -1266,6 +1266,11 @@
              localStorage.setItem('theme', theme);
              updateThemeIcon(theme);
              
+             // Refresh charts to update day/night shading colors
+             if (typeof window.refreshAllCharts === 'function') {
+                 window.refreshAllCharts();
+             }
+             
              if (isManual) {
                  localStorage.setItem('manualThemeOverride', theme);
                  localStorage.setItem('manualThemeOverrideTime', Date.now().toString());
