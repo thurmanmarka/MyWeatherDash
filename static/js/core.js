@@ -708,6 +708,7 @@ function updateCelestialDisplay() {
     if (!celestialData) return;
 
     const sunriseSunsetEl = document.getElementById('cc-sunrise-sunset');
+    const daylightHoursEl = document.getElementById('cc-daylight-hours');
     const moonPhaseEl = document.getElementById('cc-moon-phase');
     const moonriseMoonsetEl = document.getElementById('cc-moonrise-moonset');
     const civilTwilightEl = document.getElementById('cc-civil-twilight');
@@ -738,6 +739,15 @@ function updateCelestialDisplay() {
         const sunrise = celestialData.sunrise24 ? celestialData.sunrise24 : formatTime24FromISO(celestialData.sunrise);
         const sunset  = celestialData.sunset24  ? celestialData.sunset24  : formatTime24FromISO(celestialData.sunset);
         sunriseSunsetEl.textContent = `${sunrise} / ${sunset}`;
+    }
+
+    // Daylight Hours (formatted as HH:MM)
+    if (daylightHoursEl && celestialData.daylightHours) {
+        const hours = Math.floor(celestialData.daylightHours);
+        const minutes = Math.round((celestialData.daylightHours - hours) * 60);
+        daylightHoursEl.textContent = `${hours}h ${minutes}m`;
+    } else if (daylightHoursEl) {
+        daylightHoursEl.textContent = '--';
     }
 
     // Moon Phase

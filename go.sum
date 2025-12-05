@@ -4,6 +4,8 @@ github.com/go-sql-driver/mysql v1.9.3 h1:U/N249h2WzJ3Ukj8SowVFjdtZKfu9vlLZxjPXV1
 github.com/go-sql-driver/mysql v1.9.3/go.mod h1:qn46aNg1333BRMNU69Lq93t8du/dwxI64Gl8i5p1WMU=
 github.com/thurmanmarka/astroglide v1.0.0 h1:PZaJ2PvDJxmS3etPJLsLKdoA4ha9lNu37M2/XvhP1UI=
 github.com/thurmanmarka/astroglide v1.0.0/go.mod h1:VfLNYmaQtUybii0V1DS02xK9ErHxgwJMLgWXdpm2cXs=
+github.com/thurmanmarka/astroglide v1.1.0 h1:iRreMHe+8ip68Trq98qGoPrRib1VI+06msmCNjqIUwc=
+github.com/thurmanmarka/astroglide v1.1.0/go.mod h1:VfLNYmaQtUybii0V1DS02xK9ErHxgwJMLgWXdpm2cXs=
 golang.org/x/sync v0.18.0 h1:kr88TuHDroi+UVf+0hZnirlk8o8T+4MrK6mr60WkH/I=
 golang.org/x/sync v0.18.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=

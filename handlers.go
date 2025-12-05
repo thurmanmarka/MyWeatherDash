@@ -1345,6 +1345,9 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 	goldenHour, _ := astroglide.GoldenHourFor(coords, date)
 	blueHour, _ := astroglide.BlueHourFor(coords, date)
 
+	// Compute daylight hours (duration between sunrise and sunset)
+	daylightHours, daylightErr := astroglide.DaylightHours(coords, date)
+
 	// Build response
 	celestial := CelestialData{
 		Date:     date.Format("2006-01-02"),
@@ -1361,6 +1364,11 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 			celestial.Sunset = &sunRS.Set
 			celestial.Sunset24 = sunRS.Set.In(loc).Format("15:04")
 		}
+	}
+
+	// Include daylight hours if calculation succeeded
+	if daylightErr == nil {
+		celestial.DaylightHours = daylightHours
 	}
 
 	if moonErr == nil || moonErr == astroglide.ErrNoRiseNoSet {
