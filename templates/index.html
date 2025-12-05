@@ -13,6 +13,25 @@
             --accent-soft: #e0edff;
             --text-main: #1f2933;
             --text-muted: #6b7280;
+            --gradient-start: #d9e6ff;
+            --gradient-mid1: #e7edf4;
+            --gradient-mid2: #dde7f4;
+            --gradient-end: #d3e0f0;
+        }
+
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --page-bg: #1e293b;
+            --panel-bg: #334155;
+            --panel-border: #475569;
+            --accent: #3b82f6;
+            --accent-soft: #1e3a8a;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --gradient-start: #1e293b;
+            --gradient-mid1: #0f172a;
+            --gradient-mid2: #1e293b;
+            --gradient-end: #334155;
         }
 
         * {
@@ -23,8 +42,9 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             padding: 20px;
             margin: 0;
-            background: radial-gradient(circle at top left, #d9e6ff, #e7edf4 40%, #dde7f4 70%, #d3e0f0 100%);
+            background: radial-gradient(circle at top left, var(--gradient-start), var(--gradient-mid1) 40%, var(--gradient-mid2) 70%, var(--gradient-end) 100%);
             color: var(--text-main);
+            transition: background 0.3s ease, color 0.3s ease;
         }
 
         .page-shell {
@@ -103,12 +123,13 @@
             box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
         }
 
-        #reloadBtn {
+        #reloadBtn,
+        #themeToggle {
             padding: 6px 12px;
             font-size: 0.8rem;
             border-radius: 999px;
             border: 1px solid rgba(148, 163, 184, 0.7);
-            background: #ffffff;
+            background: var(--panel-bg);
             cursor: pointer;
             color: var(--text-main);
             display: inline-flex;
@@ -117,12 +138,14 @@
             transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
         }
 
-        #reloadBtn:hover {
-            background: #f3f4ff;
+        #reloadBtn:hover,
+        #themeToggle:hover {
+            background: var(--accent-soft);
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
         }
 
-        #reloadBtn:active {
+        #reloadBtn:active,
+        #themeToggle:active {
             transform: translateY(1px);
             box-shadow: none;
         }
@@ -132,7 +155,7 @@
             font-size: 0.8rem;
             border-radius: 999px;
             border: 1px solid rgba(148, 163, 184, 0.7);
-            background: #ffffff;
+            background: var(--panel-bg);
             cursor: pointer;
             color: var(--text-main);
             display: inline-flex;
@@ -143,7 +166,7 @@
         }
 
         #noaaBtn:hover {
-            background: #f3f4ff;
+            background: var(--accent-soft);
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
         }
 
@@ -656,6 +679,7 @@
 
         <div style="display: flex; align-items: center; gap: 10px;">
             <span id="status"></span>
+            <button id="themeToggle" title="Toggle dark mode">🌙</button>
             <button id="reloadBtn">⟳ Reload</button>
         </div>
     </div>
@@ -845,7 +869,7 @@
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
                     <span class="cc-label" style="font-weight: 600; color: var(--text-main);">
-                        <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌅</span>
+                        <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌇</span>
                         Twilight
                     </span>
                     <span class="cc-value"></span>
@@ -874,28 +898,28 @@
                 <div class="cc-row cc-celestial-details" style="display: none;">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">💙</span>
-                        Blue (AM)
+                        Blue Hour (AM)
                     </span>
                     <span class="cc-value" id="cc-blue-hour-morning">--</span>
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌄</span>
-                        Golden (AM)
+                        Golden Hour (AM)
                     </span>
                     <span class="cc-value" id="cc-golden-hour-morning">--</span>
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌇</span>
-                        Golden (PM)
+                        Golden Hour (PM)
                     </span>
                     <span class="cc-value" id="cc-golden-hour-evening">--</span>
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">💙</span>
-                        Blue (PM)
+                        Blue Hour (PM)
                     </span>
                     <span class="cc-value" id="cc-blue-hour-evening">--</span>
                 </div>
@@ -1193,6 +1217,31 @@
      /* Emit the configured client poll interval in milliseconds.
          A value of 0 disables client-side periodic polling. */
      window.APP_CONFIG.clientPollMs = {{ .ClientPollMs }};
+     
+     // Dark mode toggle functionality
+     (function() {
+         const html = document.documentElement;
+         const themeToggle = document.getElementById('themeToggle');
+         
+         // Load saved theme preference or default to light
+         const savedTheme = localStorage.getItem('theme') || 'light';
+         html.setAttribute('data-theme', savedTheme);
+         updateThemeIcon(savedTheme);
+         
+         // Toggle theme on button click
+         themeToggle.addEventListener('click', function() {
+             const currentTheme = html.getAttribute('data-theme');
+             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+             html.setAttribute('data-theme', newTheme);
+             localStorage.setItem('theme', newTheme);
+             updateThemeIcon(newTheme);
+         });
+         
+         function updateThemeIcon(theme) {
+             themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+             themeToggle.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+         }
+     })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/static/js/core.js?v={{ .AssetVersion }}"></script>
