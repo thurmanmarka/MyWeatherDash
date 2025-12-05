@@ -690,6 +690,20 @@ if (windRowEl) {
     updateCelestialDisplay();
 }
 
+// Get moon phase emoji based on fraction (0.0-1.0)
+function getMoonPhaseEmoji(fraction) {
+    // fraction: 0.0 = new moon, 0.25 = first quarter, 0.5 = full, 0.75 = last quarter, 1.0 = new again
+    if (fraction < 0.0625) return '🌑'; // New Moon
+    if (fraction < 0.1875) return '🌒'; // Waxing Crescent
+    if (fraction < 0.3125) return '🌓'; // First Quarter
+    if (fraction < 0.4375) return '🌔'; // Waxing Gibbous
+    if (fraction < 0.5625) return '🌕'; // Full Moon
+    if (fraction < 0.6875) return '🌖'; // Waning Gibbous
+    if (fraction < 0.8125) return '🌗'; // Last Quarter
+    if (fraction < 0.9375) return '🌘'; // Waning Crescent
+    return '🌑'; // New Moon (wrapping around)
+}
+
 function updateCelestialDisplay() {
     if (!celestialData) return;
 
@@ -733,11 +747,14 @@ function updateCelestialDisplay() {
         
         // Update moon icon based on phase
         if (moonPhaseIconEl) {
-            const svg = getMoonPhaseSVG(celestialData.moonPhase.fraction);
-            moonPhaseIconEl.innerHTML = svg;
+            const emoji = getMoonPhaseEmoji(celestialData.moonPhase.fraction);
+            moonPhaseIconEl.textContent = emoji;
         }
     } else if (moonPhaseEl) {
         moonPhaseEl.textContent = '--';
+        if (moonPhaseIconEl) {
+            moonPhaseIconEl.textContent = '🌙';
+        }
     }
 
     // Moonrise / Moonset (24-hour)
