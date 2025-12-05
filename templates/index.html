@@ -91,9 +91,10 @@
             align-items: center;
             gap: 6px;
             padding: 3px;
-            background: rgba(255, 255, 255, 0.8);
+            background: var(--panel-bg);
             border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.4);
+            border: 1px solid var(--panel-border);
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
 
         .range-label {
@@ -114,13 +115,13 @@
         }
 
         .range-button:hover {
-            background: rgba(148, 163, 184, 0.12);
+            background: var(--accent-soft);
         }
 
         .range-button.active {
             background: var(--accent);
             color: #ffffff;
-            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+            box-shadow: 0 0 0 1px var(--accent);
         }
 
         #reloadBtn,
