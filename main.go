@@ -48,6 +48,7 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	http.HandleFunc("/", handleHome)
+	http.HandleFunc("/health", handleHealth)
 	http.HandleFunc("/api/ping", handlePing)
 	http.HandleFunc("/api/weather", handleWeather)
 	http.HandleFunc("/api/barometer", handleBarometer)
@@ -69,10 +70,15 @@ func main() {
 	broker.StartPolling(time.Duration(appConfig.Server.SSEPollSeconds)*time.Second, stopSSE)
 	http.Handle("/api/stream", broker)
 
+	// Start background celestial cache refresh (runs at 00:05 local daily)
+	stopCelestialRefresh := make(chan struct{})
+	go refreshCelestialCacheDaily(stopCelestialRefresh)
+
 	addr := fmt.Sprintf(":%d", appConfig.Server.Port)
 	log.Println("Server listening on", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		close(stopSSE)
+		close(stopCelestialRefresh)
 		log.Fatal(err)
 	}
 }

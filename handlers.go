@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/thurmanmarka/astroglide"
+	"golang.org/x/sync/singleflight"
 )
 
 // cachedCelestial holds a computed CelestialData and an expiry time
@@ -27,6 +28,9 @@ var celestialCache = struct {
 	sync.RWMutex
 	m map[string]*cachedCelestial
 }{m: make(map[string]*cachedCelestial)}
+
+// celestialGroup deduplicates concurrent compute requests for the same date
+var celestialGroup singleflight.Group
 
 // -------------------- helpers --------------------
 
@@ -51,6 +55,19 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 func handlePing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(PingResponse{Message: "pong"})
+}
+
+// handleHealth returns 200 OK for health checks (systemd, monitoring, load balancers)
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	// Optional: check DB connection, add more sophisticated health checks
+	if err := db.Ping(); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy", "error": "database unreachable"})
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // Range helper: day / week / month
@@ -1266,29 +1283,58 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 	}
 	celestialCache.RUnlock()
 
-	// Compute sun rise/set using astroglide
-	sunRS, err := astroglide.RiseSetFor(astroglide.Sun, coords, date)
-	if err != nil && err != astroglide.ErrNoRiseNoSet {
-		log.Println("Error computing sunrise/sunset:", err)
-		http.Error(w, "Sun calculation error", http.StatusInternalServerError)
+	// Use singleflight to dedupe concurrent compute for the same cacheKey
+	result, err, _ := celestialGroup.Do(cacheKey, func() (interface{}, error) {
+		// Double-check cache inside singleflight (another goroutine may have populated it)
+		celestialCache.RLock()
+		if ce, ok := celestialCache.m[cacheKey]; ok && time.Now().Before(ce.expiry) {
+			celestialCache.RUnlock()
+			return ce.data, nil
+		}
+		celestialCache.RUnlock()
+
+		return computeCelestialData(coords, date, loc)
+	})
+
+	if err != nil {
+		log.Println("Error computing celestial data:", err)
+		http.Error(w, "Celestial calculation error", http.StatusInternalServerError)
 		return
 	}
 
+	celestial := result.(CelestialData)
+
+	// Cache the result until the next local midnight for the requested date
+	// Compute next midnight explicitly in the request's location to avoid timezone issues.
+	nextMidnight := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc).Add(24 * time.Hour)
+	expiry := nextMidnight
+	celestialCache.Lock()
+	celestialCache.m[cacheKey] = &cachedCelestial{data: celestial, expiry: expiry}
+	celestialCache.Unlock()
+
+	if err := json.NewEncoder(w).Encode(celestial); err != nil {
+		http.Error(w, "JSON error", http.StatusInternalServerError)
+	}
+}
+
+// computeCelestialData performs the actual astroglide calculations
+func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *time.Location) (CelestialData, error) {
+	// Compute sun rise/set using astroglide
+	sunRS, sunErr := astroglide.RiseSetFor(astroglide.Sun, coords, date)
+	if sunErr != nil && sunErr != astroglide.ErrNoRiseNoSet {
+		return CelestialData{}, fmt.Errorf("sunrise/sunset calculation: %w", sunErr)
+	}
+
 	// Compute moon rise/set using astroglide
-	moonRS, err := astroglide.RiseSetFor(astroglide.Moon, coords, date)
-	if err != nil && err != astroglide.ErrNoRiseNoSet {
-		log.Println("Error computing moonrise/moonset:", err)
-		http.Error(w, "Moon calculation error", http.StatusInternalServerError)
-		return
+	moonRS, moonErr := astroglide.RiseSetFor(astroglide.Moon, coords, date)
+	if moonErr != nil && moonErr != astroglide.ErrNoRiseNoSet {
+		return CelestialData{}, fmt.Errorf("moonrise/moonset calculation: %w", moonErr)
 	}
 
 	// Compute moon phase at current time (or noon on the requested date)
 	noonTime := time.Date(date.Year(), date.Month(), date.Day(), 12, 0, 0, 0, loc)
-	moonPhase, err := astroglide.MoonPhaseAt(noonTime)
-	if err != nil {
-		log.Println("Error computing moon phase:", err)
-		// Non-fatal, continue without phase data
-	}
+	moonPhase, phaseErr := astroglide.MoonPhaseAt(noonTime)
+	// Non-fatal if phase calculation fails
 
 	// Compute twilight times
 	civilTwilight, _ := astroglide.TwilightFor(coords, date, astroglide.TwilightCivil)
@@ -1306,7 +1352,7 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Only include rise/set if they exist
-	if err == nil || err == astroglide.ErrNoRiseNoSet {
+	if sunErr == nil || sunErr == astroglide.ErrNoRiseNoSet {
 		if !sunRS.Rise.IsZero() {
 			celestial.Sunrise = &sunRS.Rise
 			celestial.Sunrise24 = sunRS.Rise.In(loc).Format("15:04")
@@ -1317,7 +1363,7 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err == nil || err == astroglide.ErrNoRiseNoSet {
+	if moonErr == nil || moonErr == astroglide.ErrNoRiseNoSet {
 		if !moonRS.Rise.IsZero() {
 			celestial.Moonrise = &moonRS.Rise
 			celestial.Moonrise24 = moonRS.Rise.In(loc).Format("15:04")
@@ -1329,7 +1375,7 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add moon phase if available
-	if err == nil {
+	if phaseErr == nil {
 		celestial.MoonPhase = &MoonPhase{
 			Fraction:   moonPhase.Fraction,
 			Elongation: moonPhase.Elongation,
@@ -1396,15 +1442,72 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 		celestial.BlueHourEveningEnd24 = blueHour.Evening.End.In(loc).Format("15:04")
 	}
 
-	// Cache the result until the next local midnight for the requested date
-	// Compute next midnight explicitly in the request's location to avoid timezone issues.
-	nextMidnight := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc).Add(24 * time.Hour)
-	expiry := nextMidnight
-	celestialCache.Lock()
-	celestialCache.m[cacheKey] = &cachedCelestial{data: celestial, expiry: expiry}
-	celestialCache.Unlock()
+	return celestial, nil
+}
 
-	if err := json.NewEncoder(w).Encode(celestial); err != nil {
-		http.Error(w, "JSON error", http.StatusInternalServerError)
+// refreshCelestialCacheDaily runs a background goroutine that refreshes today's and tomorrow's
+// celestial cache at 00:05 local time daily to avoid first-request latency.
+func refreshCelestialCacheDaily(stop <-chan struct{}) {
+	// Load timezone once
+	loc, err := time.LoadLocation("America/Phoenix")
+	if err != nil {
+		log.Println("[Celestial Refresh] Failed to load timezone:", err)
+		return
+	}
+
+	// Rita Ranch coordinates (same as handler)
+	coords := astroglide.Coordinates{
+		Lat: 32.093174,
+		Lon: -110.777557,
+	}
+
+	for {
+		// Compute next 00:05 local
+		now := time.Now().In(loc)
+		nextRun := time.Date(now.Year(), now.Month(), now.Day(), 0, 5, 0, 0, loc)
+		if now.After(nextRun) {
+			// Already past 00:05 today, schedule for tomorrow
+			nextRun = nextRun.Add(24 * time.Hour)
+		}
+
+		waitDuration := time.Until(nextRun)
+		log.Printf("[Celestial Refresh] Next refresh scheduled at %s (in %s)\n", nextRun.Format("2006-01-02 15:04:05 MST"), waitDuration.Round(time.Second))
+
+		select {
+		case <-time.After(waitDuration):
+			// Refresh today and tomorrow
+			today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+			tomorrow := today.Add(24 * time.Hour)
+
+			log.Println("[Celestial Refresh] Refreshing cache for today and tomorrow...")
+
+			// Refresh today
+			if data, err := computeCelestialData(coords, today, loc); err == nil {
+				cacheKey := today.Format("2006-01-02") + "|" + loc.String()
+				expiry := today.Add(24 * time.Hour)
+				celestialCache.Lock()
+				celestialCache.m[cacheKey] = &cachedCelestial{data: data, expiry: expiry}
+				celestialCache.Unlock()
+				log.Printf("[Celestial Refresh] Cached data for %s\n", today.Format("2006-01-02"))
+			} else {
+				log.Printf("[Celestial Refresh] Failed to compute today: %v\n", err)
+			}
+
+			// Refresh tomorrow
+			if data, err := computeCelestialData(coords, tomorrow, loc); err == nil {
+				cacheKey := tomorrow.Format("2006-01-02") + "|" + loc.String()
+				expiry := tomorrow.Add(24 * time.Hour)
+				celestialCache.Lock()
+				celestialCache.m[cacheKey] = &cachedCelestial{data: data, expiry: expiry}
+				celestialCache.Unlock()
+				log.Printf("[Celestial Refresh] Cached data for %s\n", tomorrow.Format("2006-01-02"))
+			} else {
+				log.Printf("[Celestial Refresh] Failed to compute tomorrow: %v\n", err)
+			}
+
+		case <-stop:
+			log.Println("[Celestial Refresh] Stopping background refresh")
+			return
+		}
 	}
 }
