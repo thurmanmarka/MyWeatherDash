@@ -1547,3 +1547,349 @@ func refreshCelestialCacheDaily(stop <-chan struct{}) {
 		}
 	}
 }
+
+// -------------------- /api/csv/daily --------------------
+
+func handleCSVDaily(w http.ResponseWriter, r *http.Request) {
+	// Get date parameters
+	yearStr := r.URL.Query().Get("year")
+	monthStr := r.URL.Query().Get("month")
+	dayStr := r.URL.Query().Get("day")
+	columnsParam := r.URL.Query().Get("columns")
+
+	if yearStr == "" || monthStr == "" || dayStr == "" {
+		http.Error(w, "Missing required parameters: year, month, day", http.StatusBadRequest)
+		return
+	}
+
+	// Parse date
+	dateStr := fmt.Sprintf("%s-%s-%s", yearStr, monthStr, dayStr)
+	targetDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		http.Error(w, "Invalid date format", http.StatusBadRequest)
+		return
+	}
+
+	// Get local timezone for midnight calculations
+	loc, err := time.LoadLocation("America/Phoenix")
+	if err != nil {
+		loc = time.Local
+	}
+
+	// Calculate start and end times (midnight to midnight in local time)
+	startOfDay := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, loc)
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	startUnix := startOfDay.Unix()
+	endUnix := endOfDay.Unix()
+
+	// Parse columns parameter (default to all columns if not specified)
+	requestedColumns := []string{
+		"dateTime", "outTemp", "dewpoint", "outHumidity", "barometer",
+		"heatindex", "windchill", "windSpeed", "windGust", "windDir",
+		"rainRate", "rain", "lightning_strike_count", "lightning_distance",
+		"inTemp", "inHumidity",
+	}
+
+	if columnsParam != "" {
+		requestedColumns = strings.Split(columnsParam, ",")
+		// Validate that dateTime is always first
+		if len(requestedColumns) == 0 || requestedColumns[0] != "dateTime" {
+			http.Error(w, "Timestamp (dateTime) must be the first column", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Build SQL query dynamically
+	selectClause := strings.Join(requestedColumns, ", ")
+	query := fmt.Sprintf("SELECT %s FROM archive WHERE dateTime >= ? AND dateTime < ? ORDER BY dateTime ASC", selectClause)
+
+	rows, err := db.Query(query, startUnix, endUnix)
+	if err != nil {
+		log.Println("CSV query error:", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// Set headers for CSV download
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"weather_%s.csv\"", dateStr))
+
+	// Column labels mapping
+	columnLabels := map[string]string{
+		"dateTime":               "Timestamp",
+		"outTemp":                "Temperature_F",
+		"dewpoint":               "Dewpoint_F",
+		"outHumidity":            "Humidity_Pct",
+		"barometer":              "Barometer_inHg",
+		"heatindex":              "HeatIndex_F",
+		"windchill":              "WindChill_F",
+		"windSpeed":              "WindSpeed_mph",
+		"windGust":               "WindGust_mph",
+		"windDir":                "WindDirection_deg",
+		"rainRate":               "RainRate_in_hr",
+		"rain":                   "Rain_in",
+		"lightning_strike_count": "LightningStrikes",
+		"lightning_distance":     "LightningDistance_mi",
+		"inTemp":                 "InsideTemp_F",
+		"inHumidity":             "InsideHumidity_Pct",
+	}
+
+	// Write CSV header
+	headerParts := make([]string, len(requestedColumns))
+	for i, col := range requestedColumns {
+		if label, ok := columnLabels[col]; ok {
+			headerParts[i] = label
+		} else {
+			headerParts[i] = col
+		}
+	}
+	fmt.Fprintf(w, "%s\n", strings.Join(headerParts, ","))
+
+	// Helper to format nullable float
+	formatFloat := func(nf sql.NullFloat64) string {
+		if nf.Valid {
+			return fmt.Sprintf("%.2f", nf.Float64)
+		}
+		return ""
+	}
+
+	formatInt := func(ni sql.NullInt64) string {
+		if ni.Valid {
+			return fmt.Sprintf("%d", ni.Int64)
+		}
+		return ""
+	}
+
+	// Write data rows
+	rowCount := 0
+	for rows.Next() {
+		// Prepare scan destinations based on requested columns
+		scanDest := make([]interface{}, len(requestedColumns))
+		values := make([]string, len(requestedColumns))
+
+		for i, col := range requestedColumns {
+			switch col {
+			case "dateTime":
+				var epochSec int64
+				scanDest[i] = &epochSec
+			case "lightning_strike_count":
+				var val sql.NullInt64
+				scanDest[i] = &val
+			default:
+				var val sql.NullFloat64
+				scanDest[i] = &val
+			}
+		}
+
+		if err := rows.Scan(scanDest...); err != nil {
+			log.Println("CSV scan error:", err)
+			continue
+		}
+
+		// Format values for CSV output
+		for i, col := range requestedColumns {
+			switch col {
+			case "dateTime":
+				epochSec := *scanDest[i].(*int64)
+				ts := time.Unix(epochSec, 0).In(loc)
+				values[i] = ts.Format("2006-01-02 15:04:05")
+			case "lightning_strike_count":
+				values[i] = formatInt(*scanDest[i].(*sql.NullInt64))
+			default:
+				values[i] = formatFloat(*scanDest[i].(*sql.NullFloat64))
+			}
+		}
+
+		fmt.Fprintf(w, "%s\n", strings.Join(values, ","))
+		rowCount++
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("CSV rows error:", err)
+	}
+
+	log.Printf("[CSV] Generated daily CSV for %s: %d rows, %d columns\n", dateStr, rowCount, len(requestedColumns))
+}
+
+func handleCSVRange(w http.ResponseWriter, r *http.Request) {
+	// Get date range parameters
+	startYearStr := r.URL.Query().Get("startYear")
+	startMonthStr := r.URL.Query().Get("startMonth")
+	startDayStr := r.URL.Query().Get("startDay")
+	endYearStr := r.URL.Query().Get("endYear")
+	endMonthStr := r.URL.Query().Get("endMonth")
+	endDayStr := r.URL.Query().Get("endDay")
+	columnsParam := r.URL.Query().Get("columns")
+
+	if startYearStr == "" || startMonthStr == "" || startDayStr == "" ||
+		endYearStr == "" || endMonthStr == "" || endDayStr == "" {
+		http.Error(w, "Missing required parameters: startYear, startMonth, startDay, endYear, endMonth, endDay", http.StatusBadRequest)
+		return
+	}
+
+	// Parse start date
+	startDateStr := fmt.Sprintf("%s-%s-%s", startYearStr, startMonthStr, startDayStr)
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start date format", http.StatusBadRequest)
+		return
+	}
+
+	// Parse end date
+	endDateStr := fmt.Sprintf("%s-%s-%s", endYearStr, endMonthStr, endDayStr)
+	endDate, err := time.Parse("2006-01-02", endDateStr)
+	if err != nil {
+		http.Error(w, "Invalid end date format", http.StatusBadRequest)
+		return
+	}
+
+	// Validate date range
+	if startDate.After(endDate) {
+		http.Error(w, "Start date must be before or equal to end date", http.StatusBadRequest)
+		return
+	}
+
+	// Get local timezone for midnight calculations
+	loc, err := time.LoadLocation("America/Phoenix")
+	if err != nil {
+		loc = time.Local
+	}
+
+	// Calculate start and end times (midnight to midnight in local time)
+	startOfRange := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, loc)
+	endOfRange := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 0, loc).Add(time.Second)
+
+	startUnix := startOfRange.Unix()
+	endUnix := endOfRange.Unix()
+
+	// Parse columns parameter (default to all columns if not specified)
+	requestedColumns := []string{
+		"dateTime", "outTemp", "dewpoint", "outHumidity", "barometer",
+		"heatindex", "windchill", "windSpeed", "windGust", "windDir",
+		"rainRate", "rain", "lightning_strike_count", "lightning_distance",
+		"inTemp", "inHumidity",
+	}
+
+	if columnsParam != "" {
+		requestedColumns = strings.Split(columnsParam, ",")
+		// Validate that dateTime is always first
+		if len(requestedColumns) == 0 || requestedColumns[0] != "dateTime" {
+			http.Error(w, "Timestamp (dateTime) must be the first column", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Build SQL query dynamically
+	selectClause := strings.Join(requestedColumns, ", ")
+	query := fmt.Sprintf("SELECT %s FROM archive WHERE dateTime >= ? AND dateTime < ? ORDER BY dateTime ASC", selectClause)
+
+	rows, err := db.Query(query, startUnix, endUnix)
+	if err != nil {
+		log.Println("CSV range query error:", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// Set headers for CSV download
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"weather_%s_to_%s.csv\"", startDateStr, endDateStr))
+
+	// Column labels mapping
+	columnLabels := map[string]string{
+		"dateTime":               "Timestamp",
+		"outTemp":                "Temperature_F",
+		"dewpoint":               "Dewpoint_F",
+		"outHumidity":            "Humidity_Pct",
+		"barometer":              "Barometer_inHg",
+		"heatindex":              "HeatIndex_F",
+		"windchill":              "WindChill_F",
+		"windSpeed":              "WindSpeed_mph",
+		"windGust":               "WindGust_mph",
+		"windDir":                "WindDirection_deg",
+		"rainRate":               "RainRate_in_hr",
+		"rain":                   "Rain_in",
+		"lightning_strike_count": "LightningStrikes",
+		"lightning_distance":     "LightningDistance_mi",
+		"inTemp":                 "InsideTemp_F",
+		"inHumidity":             "InsideHumidity_Pct",
+	}
+
+	// Write CSV header
+	headerParts := make([]string, len(requestedColumns))
+	for i, col := range requestedColumns {
+		if label, ok := columnLabels[col]; ok {
+			headerParts[i] = label
+		} else {
+			headerParts[i] = col
+		}
+	}
+	fmt.Fprintf(w, "%s\n", strings.Join(headerParts, ","))
+
+	// Helper to format nullable float
+	formatFloat := func(nf sql.NullFloat64) string {
+		if nf.Valid {
+			return fmt.Sprintf("%.2f", nf.Float64)
+		}
+		return ""
+	}
+
+	formatInt := func(ni sql.NullInt64) string {
+		if ni.Valid {
+			return fmt.Sprintf("%d", ni.Int64)
+		}
+		return ""
+	}
+
+	// Write data rows
+	rowCount := 0
+	for rows.Next() {
+		// Prepare scan destinations based on requested columns
+		scanDest := make([]interface{}, len(requestedColumns))
+		values := make([]string, len(requestedColumns))
+
+		for i, col := range requestedColumns {
+			switch col {
+			case "dateTime":
+				var epochSec int64
+				scanDest[i] = &epochSec
+			case "lightning_strike_count":
+				var val sql.NullInt64
+				scanDest[i] = &val
+			default:
+				var val sql.NullFloat64
+				scanDest[i] = &val
+			}
+		}
+
+		if err := rows.Scan(scanDest...); err != nil {
+			log.Println("CSV scan error:", err)
+			continue
+		}
+
+		// Format values for CSV output
+		for i, col := range requestedColumns {
+			switch col {
+			case "dateTime":
+				epochSec := *scanDest[i].(*int64)
+				ts := time.Unix(epochSec, 0).In(loc)
+				values[i] = ts.Format("2006-01-02 15:04:05")
+			case "lightning_strike_count":
+				values[i] = formatInt(*scanDest[i].(*sql.NullInt64))
+			default:
+				values[i] = formatFloat(*scanDest[i].(*sql.NullFloat64))
+			}
+		}
+
+		fmt.Fprintf(w, "%s\n", strings.Join(values, ","))
+		rowCount++
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Println("CSV rows error:", err)
+	}
+
+	log.Printf("[CSV] Generated range CSV from %s to %s: %d rows, %d columns\n", startDateStr, endDateStr, rowCount, len(requestedColumns))
+}

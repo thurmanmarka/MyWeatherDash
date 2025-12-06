@@ -176,6 +176,37 @@
             box-shadow: none;
         }
 
+        #easyBtn {
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.7);
+            background: var(--panel-bg);
+            cursor: pointer;
+            color: var(--text-main);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+            margin-left: 8px;
+        }
+
+        #easyBtn svg {
+            width: 18px;
+            height: 18px;
+            display: block;
+        }
+
+        #easyBtn:hover {
+            background: var(--accent-soft);
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
+        }
+
+        #easyBtn:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+
         /* NOAA Modal */
         .noaa-modal {
             display: none;
@@ -259,6 +290,26 @@
 
         .noaa-modal-controls button:hover {
             opacity: 0.9;
+        }
+
+        #easyDownload {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #10b981 !important;
+            color: white !important;
+            font-weight: 600;
+        }
+
+        #easyDownload svg {
+            width: 28px;
+            height: 28px;
+            display: block;
+        }
+
+        #easyDownload:hover {
+            background: #059669 !important;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
         }
 
         .noaa-content {
@@ -735,6 +786,21 @@
                 <button class="range-button" data-range="month">Month</button>
             </div>
             <button id="noaaBtn">📊 NOAA Reports</button>
+            <button id="easyBtn">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Button shadow -->
+                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
+                    <!-- Button base -->
+                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
+                    <!-- Top highlight -->
+                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
+                    <!-- Rim -->
+                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
+                    <!-- Text -->
+                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
+                </svg>
+                Easy Button
+            </button>
         </div>
 
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -1269,6 +1335,120 @@
     </div>
 </div>
 
+<!-- Easy Button Modal -->
+<div id="easyModal" class="noaa-modal">
+    <div class="noaa-modal-content">
+        <div class="noaa-modal-header">
+            <h2>
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 8px;">
+                    <!-- Button shadow -->
+                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
+                    <!-- Button base -->
+                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
+                    <!-- Top highlight -->
+                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
+                    <!-- Rim -->
+                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
+                    <!-- Text -->
+                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
+                </svg>
+                Easy Button - Chose Your Own Data!
+            </h2>
+            <button class="noaa-modal-close" id="easyModalClose">&times;</button>
+        </div>
+        <div class="noaa-modal-controls">
+            <label style="font-size: 0.85rem; color: var(--text-muted);">Start Date:</label>
+            <select id="easyStartYear"></select>
+            <select id="easyStartMonth">
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+            </select>
+            <select id="easyStartDay"></select>
+        </div>
+        
+        <div class="noaa-modal-controls" style="margin-top: 10px;">
+            <label style="font-size: 0.85rem; color: var(--text-muted);">End Date:</label>
+            <select id="easyEndYear"></select>
+            <select id="easyEndMonth">
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+            </select>
+            <select id="easyEndDay"></select>
+        </div>
+        
+        <!-- Column Selection Section -->
+        <div style="padding: 20px; border-bottom: 1px solid var(--panel-border);">
+            <h3 style="margin: 0 0 12px 0; font-size: 0.95rem; color: var(--text-main);">Customize CSV Columns</h3>
+            <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--text-muted);">Select which data columns to include in your CSV export:</p>
+            
+            <div id="easyColumnContainer" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Timestamp (always included, not removable) -->
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.85rem; color: var(--text-muted); min-width: 80px;">Column 1:</span>
+                    <select disabled style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--page-bg); color: var(--text-muted); cursor: not-allowed;">
+                        <option>Timestamp (required)</option>
+                    </select>
+                </div>
+                
+                <!-- Dynamic columns will be added here -->
+            </div>
+            
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button id="easyAddColumn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--accent); color: white; cursor: pointer; font-size: 0.8rem;">
+                    ➕ Add Column
+                </button>
+                <button id="easyRemoveColumn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--panel-border); background: #ef4444; color: white; cursor: pointer; font-size: 0.8rem;">
+                    ➖ Remove Column
+                </button>
+            </div>
+        </div>
+        
+        <div style="padding: 20px; font-size: 0.85rem; color: var(--text-muted); text-align: center;">
+            <p style="margin: 0;">Select a date and click Download CSV to get all weather statistics for that day.</p>
+            <p style="margin: 8px 0 0 0; font-size: 0.75rem;">Includes: temperature, humidity, pressure, wind, rain, lightning, and more.</p>
+        </div>
+        
+        <!-- Download Button at Bottom -->
+        <div style="padding: 20px; text-align: center; border-top: 1px solid var(--panel-border);">
+            <button id="easyDownload" style="padding: 10px 20px; font-size: 1rem;">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Button shadow -->
+                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
+                    <!-- Button base -->
+                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
+                    <!-- Top highlight -->
+                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
+                    <!-- Rim -->
+                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
+                    <!-- Text -->
+                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
+                </svg>
+                Download as CSV
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Injected app config from server -->
 <script>
      window.APP_CONFIG = window.APP_CONFIG || {};
@@ -1363,5 +1543,6 @@
 <script src="/static/js/core.js?v={{ .AssetVersion }}"></script>
 <script src="/static/js/charts.js?v={{ .AssetVersion }}"></script>
 <script src="/static/js/noaa.js?v={{ .AssetVersion }}"></script>
+<script src="/static/js/easy.js?v={{ .AssetVersion }}"></script>
 </body>
 </html>

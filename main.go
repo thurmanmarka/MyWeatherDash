@@ -63,6 +63,8 @@ func main() {
 	http.HandleFunc("/api/noaa/monthly", handleNOAAMonthly)
 	http.HandleFunc("/api/noaa/yearly", handleNOAAYearly)
 	http.HandleFunc("/api/statistics", handleStatistics)
+	http.HandleFunc("/api/csv/daily", handleCSVDaily)
+	http.HandleFunc("/api/csv/range", handleCSVRange)
 	// Server-Sent Events stream (push updates)
 	broker := NewSSEBroker(db)
 	stopSSE := make(chan struct{})
