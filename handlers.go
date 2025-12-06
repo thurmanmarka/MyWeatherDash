@@ -41,10 +41,14 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		ClientPollMs int
 		AssetVersion string
 		LocationName string
+		ExtremeHeat  float64
+		ExtremeCold  float64
 	}{
 		ClientPollMs: appConfig.Server.ClientPollSeconds * 1000,
 		AssetVersion: time.Now().Format("20060102T150405"),
 		LocationName: appConfig.Location.Name,
+		ExtremeHeat:  appConfig.Alerts.ExtremeHeat,
+		ExtremeCold:  appConfig.Alerts.ExtremeCold,
 	}
 
 	if err := tmplIndex.Execute(w, data); err != nil {
@@ -485,10 +489,8 @@ func handleWind(w http.ResponseWriter, r *http.Request) {
 			latest.Compass = "--"
 		}
 
-		// Strong wind detection (speed >= 20 mph OR gust >= 25 mph)
-		const WIND_STRONG_SPEED = 20.0
-		const WIND_STRONG_GUST = 25.0
-		latest.Strong = (latest.Speed >= WIND_STRONG_SPEED || latest.Gust >= WIND_STRONG_GUST)
+		// Strong wind detection using config thresholds
+		latest.Strong = (latest.Speed >= appConfig.Alerts.WindSpeed || latest.Gust >= appConfig.Alerts.WindGust)
 	}
 
 	if err := json.NewEncoder(w).Encode(readings); err != nil {
@@ -593,7 +595,7 @@ func handleLightning(w http.ResponseWriter, r *http.Request) {
 	since := time.Now().Add(-dur).Unix()
 
 	rows, err := db.Query(`
-        SELECT dateTime, lightning_strike_count
+        SELECT dateTime, lightning_strike_count, lightning_distance
         FROM archive
         WHERE dateTime >= ? AND lightning_strike_count IS NOT NULL
         ORDER BY dateTime ASC
@@ -609,8 +611,9 @@ func handleLightning(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var epochSec int64
 		var strikes float64
+		var distance sql.NullFloat64
 
-		if err := rows.Scan(&epochSec, &strikes); err != nil {
+		if err := rows.Scan(&epochSec, &strikes, &distance); err != nil {
 			log.Println("DB scan error (lightning):", err)
 			http.Error(w, "DB scan error", http.StatusInternalServerError)
 			return
@@ -618,9 +621,15 @@ func handleLightning(w http.ResponseWriter, r *http.Request) {
 
 		ts := time.Unix(epochSec, 0)
 
+		var distPtr *float64
+		if distance.Valid {
+			distPtr = &distance.Float64
+		}
+
 		readings = append(readings, LightningReading{
 			Timestamp: ts,
 			Strikes:   strikes,
+			Distance:  distPtr,
 		})
 	}
 
@@ -823,7 +832,7 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 
 	// Single query to fetch all necessary data
 	rows, err := db.Query(`
-		SELECT dateTime, rain, rainRate, lightning_strike_count,
+		SELECT dateTime, rain, rainRate, lightning_strike_count, lightning_distance,
 		       outTemp, dewpoint, outHumidity, barometer,
 		       heatindex, windchill, windSpeed, windGust, windDir,
 		       inTemp, inHumidity
@@ -843,6 +852,10 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 	var rainMidnightTotal float64
 	var strikeRangeTotal int
 	var strikeMidnightTotal int
+
+	// Lightning distance (closest/minimum)
+	var lightningDistMid float64 = 999   // closest today (min value)
+	var lightningDistRange float64 = 999 // closest in range (min value)
 
 	// Temperature metrics
 	var tHiMid, fHiMid, dHiMid, hHiMid, bHiMid float64 = -999, -999, -999, -999, -999
@@ -871,12 +884,13 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		var epochSec int64
 		var rain, rainRate sql.NullFloat64
 		var strikes sql.NullInt64
+		var lightningDist sql.NullFloat64
 		var outTemp, dewpoint, outHumidity, barometer sql.NullFloat64
 		var heatindex, windchill sql.NullFloat64
 		var windSpeed, windGust, windDir sql.NullFloat64
 		var inTemp, inHumidity sql.NullFloat64
 
-		if err := rows.Scan(&epochSec, &rain, &rainRate, &strikes,
+		if err := rows.Scan(&epochSec, &rain, &rainRate, &strikes, &lightningDist,
 			&outTemp, &dewpoint, &outHumidity, &barometer,
 			&heatindex, &windchill, &windSpeed, &windGust, &windDir,
 			&inTemp, &inHumidity); err != nil {
@@ -900,6 +914,16 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 			strikeRangeTotal += int(strikes.Int64)
 			if isMidnight {
 				strikeMidnightTotal += int(strikes.Int64)
+			}
+		}
+
+		// Lightning distance (track minimum/closest)
+		if lightningDist.Valid && lightningDist.Float64 > 0 {
+			if lightningDist.Float64 < lightningDistRange {
+				lightningDistRange = lightningDist.Float64
+			}
+			if isMidnight && lightningDist.Float64 < lightningDistMid {
+				lightningDistMid = lightningDist.Float64
 			}
 		}
 
@@ -1098,6 +1122,7 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 
 	// Format helper functions
 	fmt0 := func(v float64) string { return fmt.Sprintf("%d", int(math.Round(v))) }
+	fmt1 := func(v float64) string { return fmt.Sprintf("%.1f", v) }
 	fmt2 := func(v float64) string { return fmt.Sprintf("%.2f", v) }
 	hiLo := func(hi, lo float64, formatter func(float64) string) string {
 		if hi == -999 || lo == 999 {
@@ -1173,27 +1198,14 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		StrikesToday: strikeMidnightTotal,
 		StrikesRange: strikeRangeTotal,
 
-		TempToday: hiLo(tHiMid, tLoMid, fmt0),
-		TempRange: hiLo(tHiRange, tLoRange, fmt0),
+		TempToday: hiLo(tHiMid, tLoMid, fmt1),
+		TempRange: hiLo(tHiRange, tLoRange, fmt1),
 
-		FeelsToday: hiLo(fHiMid, fLoMid, fmt0),
-		FeelsRange: hiLo(fHiRange, fLoRange, fmt0),
+		FeelsToday: hiLo(fHiMid, fLoMid, fmt1),
+		FeelsRange: hiLo(fHiRange, fLoRange, fmt1),
 
-		WindchillToday: func() string {
-			if fLoMid == 999 {
-				return "--"
-			}
-			return fmt0(fLoMid)
-		}(),
-		WindchillRange: func() string {
-			if fLoRange == 999 {
-				return "--"
-			}
-			return fmt0(fLoRange)
-		}(),
-
-		DewToday: hiLo(dHiMid, dLoMid, fmt0),
-		DewRange: hiLo(dHiRange, dLoRange, fmt0),
+		DewToday: hiLo(dHiMid, dLoMid, fmt1),
+		DewRange: hiLo(dHiRange, dLoRange, fmt1),
 
 		HumidityToday: hiLo(hHiMid, hLoMid, fmt0),
 		HumidityRange: hiLo(hHiRange, hLoRange, fmt0),
@@ -1219,11 +1231,21 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		RainRateToday: fmt2(rrMid),
 		RainRateRange: fmt2(rrRange),
 
-		LightningDistToday: "--",
-		LightningDistRange: "--",
+		LightningDistToday: func() string {
+			if lightningDistMid < 999 {
+				return fmt.Sprintf("%.1f", lightningDistMid)
+			}
+			return "--"
+		}(),
+		LightningDistRange: func() string {
+			if lightningDistRange < 999 {
+				return fmt.Sprintf("%.1f", lightningDistRange)
+			}
+			return "--"
+		}(),
 
-		InsideTempToday: hiLo(inTHiMid, inTLoMid, fmt0),
-		InsideTempRange: hiLo(inTHiRange, inTLoRange, fmt0),
+		InsideTempToday: hiLo(inTHiMid, inTLoMid, fmt1),
+		InsideTempRange: hiLo(inTHiRange, inTLoRange, fmt1),
 
 		InsideHumToday: hiLo(inHHiMid, inHLoMid, fmt0),
 		InsideHumRange: hiLo(inHHiRange, inHLoRange, fmt0),

@@ -57,6 +57,7 @@ type RainReading struct {
 type LightningReading struct {
 	Timestamp time.Time `json:"timestamp"`
 	Strikes   float64   `json:"strikes"`
+	Distance  *float64  `json:"distance,omitempty"` // lightning_distance in miles (nullable)
 	// Computed fields (only on latest reading)
 	RecentlyActive bool `json:"recentlyActive,omitempty"` // true if lightning in last 10 minutes
 }
@@ -150,10 +151,6 @@ type StatisticsData struct {
 	// Feels Like (hi/lo format: "78 / 60")
 	FeelsToday string `json:"feelsToday"`
 	FeelsRange string `json:"feelsRange"`
-
-	// Windchill (low value only)
-	WindchillToday string `json:"windchillToday"`
-	WindchillRange string `json:"windchillRange"`
 
 	// Dewpoint (hi/lo format)
 	DewToday string `json:"dewToday"`

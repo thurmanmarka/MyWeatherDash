@@ -438,7 +438,7 @@
         }
 
         .cc-wind-icon.cc-pulse svg {
-            stroke: #f59e0b;   /* amber - alert color */
+            stroke: #38bdf8;   /* sky-blue - same as normal wind icon */
             animation: wind-pulse 0.8s ease-in-out infinite;
         }
 
@@ -511,7 +511,7 @@
         }
 
         .cc-rain-icon.cc-pulse svg {
-            fill: #f59e0b;  /* amber alert color */
+            fill: #3b82f6;  /* keep blue when pulsing */
             animation: cc-pulse 0.8s ease-in-out infinite;
         }
 
@@ -597,8 +597,18 @@
             stroke: #f59e0b;
             animation: cc-pulse 0.8s ease-in-out infinite;
         }
+
+        .cc-feels-icon.cc-pulse-heat svg {
+            stroke: #ef4444;  /* red - extreme heat */
+            animation: cc-pulse 0.8s ease-in-out infinite;
+        }
+
+        .cc-feels-icon.cc-pulse-cold svg {
+            stroke: #06b6d4;  /* cyan - extreme cold */
+            animation: cc-pulse 0.8s ease-in-out infinite;
+        }
         
-        /* Alert color for active/any strikes */
+        /* Alert color for active/any strikes - amber for most alerts */
         .cc-alert {
             color: #fbbf24 !important;  /* amber-400-ish */
             font-weight: 600;
@@ -607,6 +617,50 @@
         .cc-alert .cc-label,
         .cc-alert .cc-value {
             color: #fbbf24 !important;  /* amber-400-ish */
+        }
+
+        /* Rain alerts use blue instead of amber */
+        .cc-alert-rain {
+            color: #3b82f6 !important;  /* blue-500 */
+            font-weight: 600;
+        }
+
+        .cc-alert-rain .cc-label,
+        .cc-alert-rain .cc-value {
+            color: #3b82f6 !important;  /* blue-500 */
+        }
+
+        /* Wind alerts use gray/slate to represent moving air */
+        .cc-alert-wind {
+            color: #38bdf8 !important;  /* sky-blue - matches wind icon */
+            font-weight: 600;
+        }
+
+        .cc-alert-wind .cc-label,
+        .cc-alert-wind .cc-value {
+            color: #38bdf8 !important;  /* sky-blue - matches wind icon */
+        }
+
+        /* Extreme heat alerts use red/orange */
+        .cc-alert-heat {
+            color: #ef4444 !important;  /* red-500 - hot */
+            font-weight: 600;
+        }
+
+        .cc-alert-heat .cc-label,
+        .cc-alert-heat .cc-value {
+            color: #ef4444 !important;  /* red-500 - hot */
+        }
+
+        /* Extreme cold alerts use icy cyan/blue */
+        .cc-alert-cold {
+            color: #06b6d4 !important;  /* cyan-500 - frigid */
+            font-weight: 600;
+        }
+
+        .cc-alert-cold .cc-label,
+        .cc-alert-cold .cc-value {
+            color: #06b6d4 !important;  /* cyan-500 - frigid */
         }
 
         /* Pulse animation for wind alerts */
@@ -814,6 +868,9 @@
                     </span>
                     <span class="cc-value" id="cc-lightning-today"></span>
                 </div>
+                <div class="cc-row" id="cc-lightning-distance-row" style="font-size: 0.75rem; color: var(--text-muted); margin-top: -2px;">
+                    <span style="margin-left: 20px;" id="cc-lightning-distance">--</span>
+                </div>
                 <!-- INSIDE -->
                 <div class="sidebar-section-title">Inside</div>
                 <div class="cc-row">
@@ -874,7 +931,7 @@
                     <span class="cc-value" id="cc-moonrise-moonset">--</span>
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="font-weight: 600; color: var(--text-main);">
+                    <span class="cc-label" style="font-weight: 600;">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌇</span>
                         Twilight
                     </span>
@@ -960,7 +1017,7 @@
                     <div class="stats-val" id="stats-temp-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
                     <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°F</div>
 
-                    <div class="stats-label">Heat Index</div>
+                    <div class="stats-label">Feels Like</div>
                     <div class="stats-val" id="stats-feels-hi-today">--</div>
                     <div class="stats-val" id="stats-feels-hi-range">--</div>
                     <div class="stats-unit" id="stats-feels-unit">°F</div>
@@ -969,11 +1026,6 @@
                     <div class="stats-val" id="stats-feels-lo-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
                     <div class="stats-val" id="stats-feels-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
                     <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°F</div>
-
-                    <div class="stats-label">Wind Chill (Low)</div>
-                    <div class="stats-val" id="stats-windchill-today">--</div>
-                    <div class="stats-val" id="stats-windchill-range">--</div>
-                    <div class="stats-unit" id="stats-windchill-unit">°F</div>
 
                     <div class="stats-label">Dew Point</div>
                     <div class="stats-val" id="stats-dew-hi-today">--</div>
@@ -1224,6 +1276,10 @@
          A value of 0 disables client-side periodic polling. */
      window.APP_CONFIG.clientPollMs = {{ .ClientPollMs }};
      
+     // Alert thresholds from server config
+     window.APP_CONFIG.extremeHeat = {{ .ExtremeHeat }};
+     window.APP_CONFIG.extremeCold = {{ .ExtremeCold }};
+     
      // Dark mode toggle functionality
      (function() {
          const html = document.documentElement;
@@ -1266,7 +1322,12 @@
              localStorage.setItem('theme', theme);
              updateThemeIcon(theme);
              
-             // Refresh charts to update day/night shading colors
+             // Update chart text colors for the new theme
+             if (typeof window.updateChartColors === 'function') {
+                 window.updateChartColors();
+             }
+             
+             // Refresh charts to update day/night shading colors and text
              if (typeof window.refreshAllCharts === 'function') {
                  window.refreshAllCharts();
              }

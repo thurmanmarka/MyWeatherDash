@@ -34,7 +34,7 @@
                 if (el('stats-temp-lo-range')) el('stats-temp-lo-range').textContent = loRange || '--';
             }
             
-            // Feels Like (Heat Index) - split high/low
+            // Feels Like - split high/low
             if (el('stats-feels-hi-today')) {
                 const [hiToday, loToday] = stats.feelsToday.split(' / ');
                 el('stats-feels-hi-today').textContent = hiToday || '--';
@@ -45,10 +45,6 @@
                 el('stats-feels-hi-range').textContent = hiRange || '--';
                 if (el('stats-feels-lo-range')) el('stats-feels-lo-range').textContent = loRange || '--';
             }
-            
-            // Windchill
-            if (el('stats-windchill-today')) el('stats-windchill-today').textContent = stats.windchillToday;
-            if (el('stats-windchill-range')) el('stats-windchill-range').textContent = stats.windchillRange;
             
             // Dewpoint - split high/low
             if (el('stats-dew-hi-today')) {
@@ -144,7 +140,6 @@
                 'stats-strike-unit': '',
                 'stats-temp-unit': '°F',
                 'stats-feels-unit': '°F',
-                'stats-windchill-unit': '°F',
                 'stats-dew-unit': '°F',
                 'stats-humidity-unit': '%',
                 'stats-barometer-unit': 'inHg',
@@ -1121,10 +1116,20 @@ async function loadLightning() {
             const latestReading = data[data.length - 1];
             lightningRecentlyActive = latestReading?.recentlyActive || false;
 
+            // Track latest distance from most recent strike with distance data
+            lightningDistance = null;
+            for (let i = data.length - 1; i >= 0; i--) {
+                if (data[i].distance != null) {
+                    lightningDistance = data[i].distance;
+                    break;
+                }
+            }
+
             lightningToday = totalToday;
-            console.log('[Lightning] Today total:', totalToday.toFixed(0), 'strikes | Recently active (10 min):', lightningRecentlyActive);
+            console.log('[Lightning] Today total:', totalToday.toFixed(0), 'strikes | Recently active (10 min):', lightningRecentlyActive, '| Last distance:', lightningDistance ? lightningDistance.toFixed(1) + ' mi' : 'N/A');
         } else {
             lightningToday = null;
+            lightningDistance = null;
             lightningRecentlyActive = false;
             console.log('[Lightning] No lightning data');
         }
