@@ -1,0 +1,29 @@
+[Unit]
+Description=MyWeatherDash - Real-time Weather Dashboard
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/weatherdash
+ExecStart=/home/pi/weatherdash/weatherdash
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=weatherdash
+
+# Health check (systemd 250+)
+# If your systemd supports it, uncomment:
+# WatchdogSec=30s
+
+[Install]
+WantedBy=multi-user.target
