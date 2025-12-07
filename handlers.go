@@ -34,7 +34,189 @@ var celestialGroup singleflight.Group
 
 // -------------------- helpers --------------------
 
-func handleHome(w http.ResponseWriter, r *http.Request) {
+func handleLanding(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	tmpl := `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MyWeatherDash Platform</title>
+    <style>
+        :root {
+            --bg: #e7edf4;
+            --page-bg: #f5f7fb;
+            --panel-bg: #ffffff;
+            --panel-border: #d2d7e0;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --text-main: #1f2933;
+            --text-muted: #6b7280;
+        }
+
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --page-bg: #1e293b;
+            --panel-bg: #334155;
+            --panel-border: #475569;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: radial-gradient(circle at top left, var(--bg), var(--page-bg) 70%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--panel-bg);
+            border-radius: 16px;
+            padding: 48px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+            border: 1px solid var(--panel-border);
+        }
+
+        h1 {
+            margin: 0 0 12px 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 48px;
+        }
+
+        .modules {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        .module-card {
+            background: var(--page-bg);
+            border: 2px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 32px;
+            text-decoration: none;
+            color: var(--text-main);
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .module-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
+        }
+
+        .module-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .module-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .module-description {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .module-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .module-card.disabled:hover {
+            transform: none;
+            border-color: var(--panel-border);
+            box-shadow: none;
+        }
+
+        .coming-soon {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 8px;
+        }
+
+        .footer {
+            margin-top: 48px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 32px 24px;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌦️ MyWeatherDash Platform</h1>
+        <p class="subtitle">Your personal monitoring hub</p>
+        
+        <div class="modules">
+            <a href="/weather" class="module-card">
+                <div class="module-icon">☀️</div>
+                <div class="module-title">Weather Dashboard</div>
+                <div class="module-description">Real-time weather data, charts, and statistics</div>
+            </a>
+            
+            <div class="module-card disabled">
+                <div class="module-icon">🌐</div>
+                <div class="module-title">Network Monitor</div>
+                <div class="module-description">SNMP monitoring for network devices</div>
+                <span class="coming-soon">Coming Soon</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            MyWeatherDash v2.0.0 | Powered by WeeWX & Go
+        </div>
+    </div>
+</body>
+</html>`
+	w.Write([]byte(tmpl))
+}
+
+func handleWeatherDash(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	// Provide client-side polling interval (ms) to the template
 	data := struct {
