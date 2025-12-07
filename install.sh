@@ -4,7 +4,7 @@
 
 set -e
 
-INSTALL_DIR="/home/pi/weatherdash"
+INSTALL_DIR="/home/weatherdash/weatherdash"
 SERVICE_FILE="weatherdash.service"
 BINARY_NAME="weatherdash"
 CONFIG_FILE="config.yaml"
@@ -14,8 +14,8 @@ echo "=== MyWeatherDash Platform Installation ==="
 echo ""
 
 # Check if running as pi user
-if [ "$USER" != "pi" ]; then
-    echo "Warning: This script is designed to run as the 'pi' user."
+if [ "$USER" != "weatherdash" ]; then
+    echo "Warning: This script is designed to run as the 'weatherdash' user."
     echo "Current user: $USER"
     read -p "Continue anyway? (y/N) " -n 1 -r
     echo

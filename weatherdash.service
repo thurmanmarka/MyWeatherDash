@@ -5,10 +5,10 @@ Wants=mariadb.service
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/weatherdash
-ExecStart=/home/pi/weatherdash/weatherdash
+User=weatherdash
+Group=weatherdash
+WorkingDirectory=/home/weatherdash/weatherdash
+ExecStart=/home/weatherdash/weatherdash/weatherdash
 Restart=on-failure
 RestartSec=5s
 
