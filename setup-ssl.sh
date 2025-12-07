@@ -10,7 +10,7 @@ echo "🔒 Setting up self-signed SSL certificate for MyWeatherDash..."
 SSL_DIR="/etc/nginx/ssl"
 sudo mkdir -p $SSL_DIR
 
-# Create OpenSSL config file with SAN
+# Create OpenSSL config file with SAN and CA extensions
 cat > /tmp/openssl-san.cnf <<EOF
 [req]
 default_bits = 2048
@@ -18,6 +18,7 @@ prompt = no
 default_md = sha256
 distinguished_name = dn
 req_extensions = v3_req
+x509_extensions = v3_ca
 
 [dn]
 C=US
@@ -28,6 +29,15 @@ CN=192.168.86.13
 
 [v3_req]
 subjectAltName = @alt_names
+basicConstraints = CA:TRUE
+keyUsage = critical, digitalSignature, keyEncipherment, keyCertSign
+
+[v3_ca]
+subjectAltName = @alt_names
+basicConstraints = critical, CA:TRUE
+keyUsage = critical, digitalSignature, keyEncipherment, keyCertSign
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
 
 [alt_names]
 IP.1 = 192.168.86.13
@@ -35,12 +45,12 @@ IP.2 = 162.211.51.226
 DNS.1 = localhost
 EOF
 
-# Generate self-signed certificate with SAN (valid for 365 days)
+# Generate self-signed CA certificate with SAN (valid for 365 days)
 sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -keyout $SSL_DIR/weatherdash.key \
     -out $SSL_DIR/weatherdash.crt \
     -config /tmp/openssl-san.cnf \
-    -extensions v3_req
+    -extensions v3_ca
 
 # Clean up temp config
 rm /tmp/openssl-san.cnf
