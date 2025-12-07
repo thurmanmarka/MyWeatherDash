@@ -189,8 +189,8 @@ func handleLanding(w http.ResponseWriter, r *http.Request) {
 </head>
 <body>
     <div class="container">
-        <h1>🌦️ MyWeatherDash Platform</h1>
-        <p class="subtitle">Your personal monitoring hub</p>
+        <h1>🏠 Home Services Hub</h1>
+        <p class="subtitle">Your centralized monitoring and management platform</p>
         
         <div class="modules">
             <a href="/weather" class="module-card">
@@ -208,7 +208,7 @@ func handleLanding(w http.ResponseWriter, r *http.Request) {
         </div>
 
         <div class="footer">
-            MyWeatherDash v2.0.0 | Powered by WeeWX & Go
+            Home Services Hub v2.0.0 | Powered by Go & nginx
         </div>
     </div>
 </body>
