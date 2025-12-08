@@ -17,7 +17,37 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// cachedCelestial holds a computed CelestialData and an expiry time
+// -------------------- auth helpers --------------------
+
+// getUserRole extracts the user role from hub auth headers
+func getUserRole(r *http.Request) string {
+	role := r.Header.Get("X-Hub-Role")
+	user := r.Header.Get("X-Hub-User")
+	auth := r.Header.Get("X-Hub-Authenticated")
+	log.Printf("Auth headers - User: %s, Role: %s, Authenticated: %s", user, role, auth)
+	if role == "" {
+		role = "admin" // Default to admin if no header (standalone mode)
+	}
+	return role
+}
+
+// isAdmin checks if the user has admin role
+func isAdmin(r *http.Request) bool {
+	return getUserRole(r) == "admin"
+}
+
+// requireAdmin is middleware that blocks non-admin users
+func requireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !isAdmin(r) {
+			http.Error(w, "Forbidden: Admin access required", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// -------------------- cached celestial --------------------
 type cachedCelestial struct {
 	data   CelestialData
 	expiry time.Time
@@ -225,12 +255,16 @@ func handleWeatherDash(w http.ResponseWriter, r *http.Request) {
 		LocationName string
 		ExtremeHeat  float64
 		ExtremeCold  float64
+		IsAdmin      bool
+		UserRole     string
 	}{
 		ClientPollMs: appConfig.Server.ClientPollSeconds * 1000,
 		AssetVersion: time.Now().Format("20060102T150405"),
 		LocationName: appConfig.Location.Name,
 		ExtremeHeat:  appConfig.Alerts.ExtremeHeat,
 		ExtremeCold:  appConfig.Alerts.ExtremeCold,
+		IsAdmin:      isAdmin(r),
+		UserRole:     getUserRole(r),
 	}
 
 	if err := tmplIndex.Execute(w, data); err != nil {
@@ -950,6 +984,12 @@ func handleInsideHumidity(w http.ResponseWriter, r *http.Request) {
 // -------------------- /api/noaa/monthly --------------------
 
 func handleNOAAMonthly(w http.ResponseWriter, r *http.Request) {
+	// Require admin role for NOAA reports
+	if !isAdmin(r) {
+		http.Error(w, "Forbidden: NOAA reports require admin access", http.StatusForbidden)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/plain")
 	yearStr := r.URL.Query().Get("year")
 	monthStr := r.URL.Query().Get("month")
@@ -980,6 +1020,12 @@ func handleNOAAMonthly(w http.ResponseWriter, r *http.Request) {
 // -------------------- /api/noaa/yearly --------------------
 
 func handleNOAAYearly(w http.ResponseWriter, r *http.Request) {
+	// Require admin role for NOAA reports
+	if !isAdmin(r) {
+		http.Error(w, "Forbidden: NOAA reports require admin access", http.StatusForbidden)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/plain")
 	yearStr := r.URL.Query().Get("year")
 	forceStr := r.URL.Query().Get("force")

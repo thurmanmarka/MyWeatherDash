@@ -786,6 +786,7 @@
                 <button class="range-button" data-range="month">Month</button>
             </div>
             <button id="noaaBtn">📊 NOAA Reports</button>
+            {{if .IsAdmin}}
             <button id="easyBtn">
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                     <!-- Button shadow -->
@@ -801,6 +802,7 @@
                 </svg>
                 Easy Button
             </button>
+            {{end}}
         </div>
 
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -1335,6 +1337,7 @@
     </div>
 </div>
 
+{{if .IsAdmin}}
 <!-- Easy Button Modal -->
 <div id="easyModal" class="noaa-modal">
     <div class="noaa-modal-content">
@@ -1448,6 +1451,7 @@
         </div>
     </div>
 </div>
+{{end}}
 
 <!-- Injected app config from server -->
 <script>
@@ -1543,6 +1547,8 @@
 <script src="/static/js/core.js?v={{ .AssetVersion }}"></script>
 <script src="/static/js/charts.js?v={{ .AssetVersion }}"></script>
 <script src="/static/js/noaa.js?v={{ .AssetVersion }}"></script>
+{{if .IsAdmin}}
 <script src="/static/js/easy.js?v={{ .AssetVersion }}"></script>
+{{end}}
 </body>
 </html>

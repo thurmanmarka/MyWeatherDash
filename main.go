@@ -47,7 +47,7 @@ func main() {
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	http.HandleFunc("/", handleLanding)
+	http.HandleFunc("/", handleWeatherDash)
 	http.HandleFunc("/weather", handleWeatherDash)
 	http.HandleFunc("/health", handleHealth)
 	http.HandleFunc("/api/ping", handlePing)

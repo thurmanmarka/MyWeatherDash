@@ -1,11 +1,39 @@
 # MyWeatherDash Deployment Guide
 
-This guide covers deploying MyWeatherDash as a standalone service on a Raspberry Pi or Linux system.
+## Overview
+
+MyWeatherDash is a real-time weather dashboard that displays data from a WeeWX weather station database. It supports two deployment modes:
+
+1. **Standalone Mode** - Direct access on port 8081
+2. **Hub Mode** - Integrated with MyHomeServicesHub for authentication and multi-service access
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Deployment Modes                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Standalone:                                                 │
+│  Browser → nginx (443) → MyWeatherDash (8081) → MariaDB     │
+│                                                              │
+│  Hub Integration:                                            │
+│  Browser → nginx (443) → Hub Gateway (8080)                 │
+│                              ↓                               │
+│                    MyWeatherDash (8081) → MariaDB           │
+│                    (receives auth headers)                   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## 📋 Table of Contents
 - [Prerequisites](#prerequisites)
-- [Standalone Deployment](#standalone-deployment)
-- [Manual Installation](#manual-installation)
+- [Fresh Installation](#fresh-installation)
+- [Deployment Modes](#deployment-modes)
+  - [Standalone Mode](#standalone-mode)
+  - [Hub Integration Mode](#hub-integration-mode)
+- [Permission System (Hub Mode)](#permission-system-hub-mode)
+- [Updating/Redeployment](#updatingredeployment)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 
@@ -341,6 +369,302 @@ For production deployments:
 The systemd service includes security hardening:
 - `NoNewPrivileges=true` - Prevents privilege escalation
 - `PrivateTmp=true` - Isolates /tmp
+
+## Hub Integration Mode
+
+When integrated with MyHomeServicesHub:
+
+### 1. Auth Header Forwarding
+
+The hub gateway forwards these headers to MyWeatherDash:
+- `X-Hub-User`: Username
+- `X-Hub-Role`: User role (admin/guest)
+- `X-Hub-Authenticated`: "true"
+
+### 2. Role-Based Features
+
+**Admin users get:**
+- Full dashboard access
+- NOAA Reports (monthly/yearly climate summaries)
+- Easy Button (custom date range CSV export)
+
+**Guest users get:**
+- Dashboard viewing only
+- No database-intensive features (prevents SQL spam)
+
+### 3. nginx Configuration
+
+Routes go through hub gateway (port 8080), not directly to MyWeatherDash:
+
+```nginx
+# In /etc/nginx/nginx.conf
+location /weather {
+    proxy_pass http://localhost:8080/weather;  # Hub gateway, not :8081
+    # ... proxy headers
+}
+
+location /api/ {
+    proxy_pass http://localhost:8080/api/;  # Through hub
+    # ... SSE settings
+}
+
+location /static/ {
+    proxy_pass http://localhost:8080/static/;  # Through hub
+}
+```
+
+See [MyHomeServicesHub DEPLOYMENT.md](../MyHomeServicesHub/DEPLOYMENT.md) for complete hub setup.
+
+## Permission System (Hub Mode Only)
+
+### Template Conditionals
+
+The dashboard template uses role-based rendering with Go templates:
+
+```html
+<!-- NOAA Reports button - admin only -->
+<button id="noaaBtn">📊 NOAA Reports</button>
+
+<!-- Easy Button - admin only -->
+{{if .IsAdmin}}
+<button id="easyBtn">
+    <svg>...</svg>
+    Easy Button
+</button>
+{{end}}
+
+<!-- Easy Button Modal - admin only -->
+{{if .IsAdmin}}
+<div id="easyModal" class="noaa-modal">
+    <!-- ... modal content ... -->
+</div>
+{{end}}
+
+<!-- Easy Button script - admin only -->
+{{if .IsAdmin}}
+<script src="/static/js/easy.js?v={{ .AssetVersion }}"></script>
+{{end}}
+```
+
+### Backend Permission Checks
+
+Protected endpoints verify admin role:
+
+```go
+// handlers.go - Auth helper functions
+func getUserRole(r *http.Request) string {
+    role := r.Header.Get("X-Hub-Role")
+    if role == "" {
+        role = "admin" // Default for standalone mode
+    }
+    return role
+}
+
+func isAdmin(r *http.Request) bool {
+    return getUserRole(r) == "admin"
+}
+
+// NOAA endpoints require admin role
+func handleNOAAMonthly(w http.ResponseWriter, r *http.Request) {
+    if !isAdmin(r) {
+        http.Error(w, "Forbidden: Admin access required", http.StatusForbidden)
+        return
+    }
+    // ... generate NOAA report
+}
+```
+
+### Handler Registration
+
+```go
+// main.go
+http.HandleFunc("/", handleWeatherDash)  // Passes .IsAdmin to template
+http.HandleFunc("/api/noaa/monthly", handleNOAAMonthly)  // Protected
+http.HandleFunc("/api/noaa/yearly", handleNOAAYearly)    // Protected
+```
+
+### How It Works
+
+1. **User logs into hub** with username/password
+2. **Hub creates session** with role (admin/guest)
+3. **nginx routes request** to hub gateway
+4. **Hub gateway checks session** and adds auth headers
+5. **MyWeatherDash reads headers** and sets `IsAdmin` flag
+6. **Template conditionally renders** features based on role
+7. **Backend endpoints verify** admin role before processing
+
+## Updating/Redeployment
+
+### Quick Update Script
+
+Use the included `deploy.sh` script:
+
+```bash
+# From your development machine
+./deploy.sh 192.168.86.13
+```
+
+### Manual Update
+
+```bash
+# Build for ARM
+GOOS=linux GOARCH=arm GOARM=7 go build -o weatherdash
+
+# Deploy binary
+scp weatherdash weatherdash@192.168.86.13:/home/weatherdash/weatherdash/
+
+# Deploy template (if changed)
+scp templates/index.html weatherdash@192.168.86.13:/home/weatherdash/weatherdash/templates/
+
+# Deploy static files (if changed)
+scp -r static/js weatherdash@192.168.86.13:/home/weatherdash/weatherdash/static/
+
+# Restart service
+ssh weatherdash@192.168.86.13 << 'EOF'
+chmod +x /home/weatherdash/weatherdash/weatherdash
+sudo systemctl restart weatherdash
+sudo systemctl status weatherdash --no-pager
+EOF
+```
+
+### What to Deploy After Changes
+
+| Change Type | Files to Deploy | Restart Required |
+|-------------|----------------|------------------|
+| Code logic | `weatherdash` binary | Yes |
+| Template UI | `templates/index.html` | Yes (templates parsed at startup) |
+| Static files | `static/js/*.js` | No (but clear browser cache) |
+| Configuration | `config.yaml` | Yes |
+| nginx config | `/etc/nginx/nginx.conf` | nginx reload only |
+
+## Common Deployment Issues
+
+### 1. Static Files Return 404
+
+**Symptom:** Browser console shows 404 for `/static/js/core.js`
+
+**Cause:** Hub gateway doubles the `/static` path
+
+**Fix:** In `MyHomeServicesHub/main.go`:
+
+```go
+// Correct - proxy strips path prefix
+http.HandleFunc("/static/", proxyWithAuth("http://localhost:8081/"))
+
+// Wrong - doubles /static in URL
+http.HandleFunc("/static/", proxyWithAuth("http://localhost:8081/static/"))
+```
+
+### 2. Permission Denied (203/EXEC)
+
+**Symptom:** Service fails with status 203/EXEC
+
+**Fix:**
+```bash
+chmod +x /home/weatherdash/weatherdash/weatherdash
+sudo systemctl restart weatherdash
+```
+
+### 3. Templates Not Updating
+
+**Symptom:** UI changes don't appear after deployment
+
+**Cause:** Templates are parsed at startup, not on each request
+
+**Fix:**
+```bash
+# After deploying new template
+sudo systemctl restart weatherdash
+```
+
+### 4. Auth Headers Not Received
+
+**Symptom:** Guest users see Easy Button (should be hidden)
+
+**Check hub gateway logs:**
+```bash
+sudo journalctl -u hub-gateway -f | grep "Proxying to"
+# Should show: User: guest, Role: guest
+```
+
+**Check weatherdash logs:**
+```bash
+sudo journalctl -u weatherdash -f | grep "Auth headers"
+# Should show: Auth headers - User: guest, Role: guest
+```
+
+**Common causes:**
+- Hub gateway not restarted after code changes
+- nginx routing directly to :8081 instead of through :8080
+- Session cookie not being sent (check Secure flag for HTTPS)
+
+### 5. SSE Connection Failures
+
+**Symptom:** Data doesn't load, charts empty
+
+**Check browser console:**
+- EventSource connection errors
+- 404 on /api/weather
+
+**Check nginx SSE settings:**
+```nginx
+location /api/ {
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_buffering off;
+    proxy_cache off;
+    chunked_transfer_encoding off;
+    proxy_read_timeout 3600s;
+}
+```
+
+## Monitoring and Logs
+
+### Service Status
+
+```bash
+# Check if running
+sudo systemctl status weatherdash
+
+# View recent logs
+sudo journalctl -u weatherdash -n 100 --no-pager
+
+# Follow logs in real-time
+sudo journalctl -u weatherdash -f
+
+# Filter for errors
+sudo journalctl -u weatherdash | grep -i error
+
+# Check SSE activity
+sudo journalctl -u weatherdash | grep SSE | tail -20
+```
+
+### Health Check
+
+```bash
+# Service endpoint
+curl http://localhost:8081/health
+# Should return: OK
+
+# Through hub
+curl -H "X-Hub-Role: admin" http://localhost:8080/weather
+```
+
+### Database Connectivity
+
+```bash
+# From weatherdash logs
+sudo journalctl -u weatherdash | grep -i "database\|mysql\|maria"
+
+# Direct database test
+mysql -u weewx -p weewx -e "SELECT COUNT(*) FROM archive;"
+```
+
+## Related Documentation
+
+- [MyHomeServicesHub Deployment](../MyHomeServicesHub/DEPLOYMENT.md) - Hub gateway setup and authentication
+- [WeeWX Documentation](https://weewx.com/docs.html) - Weather station software
+- [nginx SSE Configuration](https://www.nginx.com/blog/nginx-nodejs-websockets-socketio/) - Server-Sent Events setup
 - `ProtectSystem=strict` - Read-only system directories
 - `ProtectHome=true` - Protects other user home directories
 
