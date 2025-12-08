@@ -143,6 +143,35 @@ go build -o weatherdash
 
 The dashboard will be available at `http://localhost:8080` (or your configured port).
 
+## 🚀 Deployment Options
+
+MyWeatherDash can be deployed in two ways:
+
+### Option 1: Standalone Deployment (Recommended for Single Service)
+Deploy MyWeatherDash with its own nginx reverse proxy for SSL/HTTPS support.
+
+**Quick Install:**
+```bash
+# On your Raspberry Pi
+./install.sh
+./setup-ssl.sh
+```
+
+This will:
+- Install and configure nginx as a reverse proxy
+- Set up SSL with self-signed certificates
+- Configure weatherdash as a systemd service
+- Make the dashboard available at `https://your-pi-ip/`
+
+For detailed setup instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)
+
+### Option 2: Hub Integration
+Deploy as part of MyHomeServicesHub for multi-service management.
+
+The hub acts as a central gateway that routes to MyWeatherDash and other services. MyWeatherDash runs independently on port 8081, and the hub proxies requests to it.
+
+See the [MyHomeServicesHub](../MyHomeServicesHub) project for integration details.
+
 ## 🧪 API Endpoints
 
 All data endpoints support time range queries:

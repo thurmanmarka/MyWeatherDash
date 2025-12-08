@@ -1,6 +1,6 @@
 #!/bin/bash
-# MyWeatherDash Installation Script for Raspberry Pi
-# This script installs nginx, weatherdash binary, and systemd services
+# MyWeatherDash Installation Script for Raspberry Pi (Standalone Deployment)
+# This script installs nginx, weatherdash binary, and systemd service
 
 set -e
 
@@ -10,10 +10,10 @@ BINARY_NAME="weatherdash"
 CONFIG_FILE="config.yaml"
 NGINX_CONF="nginx.conf"
 
-echo "=== MyWeatherDash Platform Installation ==="
+echo "=== MyWeatherDash Standalone Installation ==="
 echo ""
 
-# Check if running as pi user
+# Check if running as weatherdash user
 if [ "$USER" != "weatherdash" ]; then
     echo "Warning: This script is designed to run as the 'weatherdash' user."
     echo "Current user: $USER"
@@ -94,22 +94,23 @@ echo ""
 echo "=== Installation complete! ==="
 echo ""
 echo "Services installed:"
-echo "  - nginx (reverse proxy on port 80)"
+echo "  - nginx (reverse proxy with SSL on ports 80/443)"
 echo "  - weatherdash (backend on port 8080)"
 echo ""
 echo "Next steps:"
 echo "1. Edit the config file: nano $INSTALL_DIR/$CONFIG_FILE"
 echo "   - Ensure port is set to 8080"
 echo "   - Configure database credentials"
-echo "2. Enable weatherdash: sudo systemctl enable weatherdash"
-echo "3. Start weatherdash: sudo systemctl start weatherdash"
-echo "4. Check status: sudo systemctl status weatherdash"
-echo "5. View logs: sudo journalctl -u weatherdash -f"
+echo "2. Set up SSL certificate: ./setup-ssl.sh"
+echo "3. Enable weatherdash: sudo systemctl enable weatherdash"
+echo "4. Start weatherdash: sudo systemctl start weatherdash"
+echo "5. Check status: sudo systemctl status weatherdash"
+echo "6. View logs: sudo journalctl -u weatherdash -f"
 echo ""
 echo "Access your dashboard:"
-echo "  - Landing page: http://$(hostname -I | awk '{print $1}')/"
-echo "  - Weather Dashboard: http://$(hostname -I | awk '{print $1}')/weather"
-echo "  - From this Pi: http://localhost/"
+echo "  - HTTPS: https://$(hostname -I | awk '{print $1}')/"
+echo "  - HTTP (redirects to HTTPS): http://$(hostname -I | awk '{print $1}')/"
+echo "  - From this Pi: https://localhost/"
 echo ""
 echo "Troubleshooting:"
 echo "  - nginx logs: sudo tail -f /var/log/nginx/error.log"
