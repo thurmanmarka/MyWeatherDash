@@ -73,8 +73,8 @@ func loadConfig(path string) error {
 	if appConfig.Server.ClientPollSeconds <= 0 {
 		appConfig.Server.ClientPollSeconds = 60
 	}
-	if appConfig.Server.Port <= 0 {
-		appConfig.Server.Port = 8080
+	if appConfig.Server.Port == 0 {
+		appConfig.Server.Port = 8081
 	}
 
 	return nil

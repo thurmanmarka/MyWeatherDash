@@ -9,8 +9,8 @@ db:
 
 # Server configuration
 server:
-  # HTTP server port (defaults to 8080 if not set)
-  port: 8080
+  # HTTP server port (defaults to 8081 if not set)
+  port: 8081
   # Server-Sent Events poll interval (seconds) — how often server checks DB for new rows
   sse_poll_seconds: 60
   # Client poll interval (seconds) — how often front-end calls loadAll() if SSE is unavailable. 0 disables polling.

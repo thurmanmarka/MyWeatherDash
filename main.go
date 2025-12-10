@@ -13,6 +13,7 @@ import (
 
 var (
 	tmplIndex *template.Template
+	tmplKiosk *template.Template
 	db        *sql.DB
 )
 
@@ -28,6 +29,12 @@ func main() {
 	tmplIndex, err = template.ParseFiles("templates/index.html")
 	if err != nil {
 		log.Fatal("Error loading template:", err)
+	}
+
+	// Load kiosk template
+	tmplKiosk, err = template.ParseFiles("templates/kiosk.html")
+	if err != nil {
+		log.Fatal("Error loading kiosk template:", err)
 	}
 
 	// Build DSN from config
@@ -49,6 +56,7 @@ func main() {
 
 	http.HandleFunc("/", handleWeatherDash)
 	http.HandleFunc("/weather", handleWeatherDash)
+	http.HandleFunc("/kiosk", handleKiosk)
 	http.HandleFunc("/health", handleHealth)
 	http.HandleFunc("/api/ping", handlePing)
 	http.HandleFunc("/api/weather", handleWeather)

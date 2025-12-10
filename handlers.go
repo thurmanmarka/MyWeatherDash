@@ -31,9 +31,10 @@ func getUserRole(r *http.Request) string {
 	return role
 }
 
-// isAdmin checks if the user has admin role
+// isAdmin checks if the user has admin or user role (full permissions)
 func isAdmin(r *http.Request) bool {
-	return getUserRole(r) == "admin"
+	role := getUserRole(r)
+	return role == "admin" || role == "user"
 }
 
 // requireAdmin is middleware that blocks non-admin users
@@ -268,6 +269,28 @@ func handleWeatherDash(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := tmplIndex.Execute(w, data); err != nil {
+		http.Error(w, "Template error", http.StatusInternalServerError)
+	}
+}
+
+func handleKiosk(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	// Kiosk mode - same data but different template (no admin controls, auto-expanded sections)
+	data := struct {
+		ClientPollMs int
+		AssetVersion string
+		LocationName string
+		ExtremeHeat  float64
+		ExtremeCold  float64
+	}{
+		ClientPollMs: appConfig.Server.ClientPollSeconds * 1000,
+		AssetVersion: time.Now().Format("20060102T150405"),
+		LocationName: appConfig.Location.Name,
+		ExtremeHeat:  appConfig.Alerts.ExtremeHeat,
+		ExtremeCold:  appConfig.Alerts.ExtremeCold,
+	}
+
+	if err := tmplKiosk.Execute(w, data); err != nil {
 		http.Error(w, "Template error", http.StatusInternalServerError)
 	}
 }

@@ -773,28 +773,8 @@
 <body>
 <div class="page-shell">
     <div class="page-header">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h1>{{ .LocationName }} Weather</h1>
-                <div class="page-subtitle">Super Dashboard for local weather enthusiasts</div>
-            </div>
-            <a href="/" style="
-                padding: 8px 16px;
-                background: var(--panel-bg);
-                color: var(--text);
-                border: 1px solid var(--border);
-                border-radius: 6px;
-                text-decoration: none;
-                font-size: 0.9rem;
-                transition: all 0.2s;
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-            " onmouseover="this.style.borderColor='var(--accent)'; this.style.color='var(--accent)';" 
-               onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text)';">
-                ← Back to Hub
-            </a>
-        </div>
+        <h1>{{ .LocationName }} Weather</h1>
+        <div class="page-subtitle">Super Dashboard for local weather enthusiasts</div>
     </div>
 
     <div class="controls-row">
@@ -805,32 +785,10 @@
                 <button class="range-button" data-range="week">Week</button>
                 <button class="range-button" data-range="month">Month</button>
             </div>
-            <button id="noaaBtn">📊 NOAA Reports</button>
-            {{if .IsAdmin}}
-            <button id="easyBtn">
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Button shadow -->
-                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
-                    <!-- Button base -->
-                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
-                    <!-- Top highlight -->
-                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
-                    <!-- Rim -->
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
-                    <!-- Text -->
-                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
-                </svg>
-                Easy Button
-            </button>
-            {{end}}
         </div>
 
         <div style="display: flex; align-items: center; gap: 10px;">
-            <span id="status"></span>
             <button id="themeToggle" title="Toggle dark mode">🌙</button>
-            {{if .IsAdmin}}
-            <button id="reloadBtn">⟳ Reload</button>
-            {{end}}
         </div>
     </div>
 
@@ -1020,56 +978,56 @@
                     </span>
                     <span class="cc-value" id="cc-moonrise-moonset">--</span>
                 </div>
-                <div class="cc-row cc-celestial-details" style="display: none;">
+                <div class="cc-row cc-celestial-details">
                     <span class="cc-label" style="font-weight: 600;">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌇</span>
                         Twilight
                     </span>
                     <span class="cc-value"></span>
                 </div>
-                <div class="cc-row cc-celestial-details" style="display: none;">
+                <div class="cc-row cc-celestial-details">
                     <span class="cc-label" style="padding-left: 1.5em;">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌆</span>
                         Civil
                     </span>
                     <span class="cc-value" id="cc-civil-twilight">--</span>
                 </div>
-                <div class="cc-row cc-celestial-details" style="display: none;">
+                <div class="cc-row cc-celestial-details">
                     <span class="cc-label" style="padding-left: 1.5em;">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌃</span>
                         Nautical
                     </span>
                     <span class="cc-value" id="cc-nautical-twilight">--</span>
                 </div>
-                <div class="cc-row cc-celestial-details" style="display: none;">
+                <div class="cc-row cc-celestial-details">
                     <span class="cc-label" style="padding-left: 1.5em;">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌌</span>
                         Astronomical
                     </span>
                     <span class="cc-value" id="cc-astronomical-twilight">--</span>
                 </div>
-                <div class="cc-row cc-celestial-details" style="display: none;">
+                <div class="cc-row cc-celestial-details">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">💙</span>
                         Blue Hour (AM)
                     </span>
                     <span class="cc-value" id="cc-blue-hour-morning">--</span>
                 </div>
-                <div class="cc-row cc-celestial-details" style="display: none;">
+                <div class="cc-row cc-celestial-details">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌄</span>
                         Golden Hour (AM)
                     </span>
                     <span class="cc-value" id="cc-golden-hour-morning">--</span>
                 </div>
-                <div class="cc-row cc-celestial-details" style="display: none;">
+                <div class="cc-row cc-celestial-details">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌇</span>
                         Golden Hour (PM)
                     </span>
                     <span class="cc-value" id="cc-golden-hour-evening">--</span>
                 </div>
-                <div class="cc-row cc-celestial-details" style="display: none;">
+                <div class="cc-row cc-celestial-details">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">💙</span>
                         Blue Hour (PM)
@@ -1323,159 +1281,6 @@
         </div>
     </div>
 </div>
-
-<!-- NOAA Reports Modal -->
-<div id="noaaModal" class="noaa-modal">
-    <div class="noaa-modal-content">
-        <div class="noaa-modal-header">
-            <h2>NOAA Climatological Summary</h2>
-            <button class="noaa-modal-close">&times;</button>
-        </div>
-        <div class="noaa-modal-controls">
-            <select id="noaaType">
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-            </select>
-            <select id="noaaYear"></select>
-            <select id="noaaMonth">
-                <option value="1">January</option>
-                <option value="2">February</option>
-                <option value="3">March</option>
-                <option value="4">April</option>
-                <option value="5">May</option>
-                <option value="6">June</option>
-                <option value="7">July</option>
-                <option value="8">August</option>
-                <option value="9">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-            </select>
-            <button id="noaaLoad">Load</button>
-            <button id="noaaDownload">Download</button>
-            {{if .IsAdmin}}
-            <button id="noaaRecompile" style="background: #f59e0b; margin-left: 10px;">🔄 Force Recompile</button>
-            {{end}}
-        </div>
-        <pre id="noaaContent" class="noaa-content">Select options and click Load</pre>
-    </div>
-</div>
-
-{{if .IsAdmin}}
-<!-- Easy Button Modal -->
-<div id="easyModal" class="noaa-modal">
-    <div class="noaa-modal-content">
-        <div class="noaa-modal-header">
-            <h2>
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 8px;">
-                    <!-- Button shadow -->
-                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
-                    <!-- Button base -->
-                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
-                    <!-- Top highlight -->
-                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
-                    <!-- Rim -->
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
-                    <!-- Text -->
-                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
-                </svg>
-                Easy Button - Chose Your Own Data!
-            </h2>
-            <button class="noaa-modal-close" id="easyModalClose">&times;</button>
-        </div>
-        <div class="noaa-modal-controls">
-            <label style="font-size: 0.85rem; color: var(--text-muted);">Start Date:</label>
-            <select id="easyStartYear"></select>
-            <select id="easyStartMonth">
-                <option value="1">January</option>
-                <option value="2">February</option>
-                <option value="3">March</option>
-                <option value="4">April</option>
-                <option value="5">May</option>
-                <option value="6">June</option>
-                <option value="7">July</option>
-                <option value="8">August</option>
-                <option value="9">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-            </select>
-            <select id="easyStartDay"></select>
-        </div>
-        
-        <div class="noaa-modal-controls" style="margin-top: 10px;">
-            <label style="font-size: 0.85rem; color: var(--text-muted);">End Date:</label>
-            <select id="easyEndYear"></select>
-            <select id="easyEndMonth">
-                <option value="1">January</option>
-                <option value="2">February</option>
-                <option value="3">March</option>
-                <option value="4">April</option>
-                <option value="5">May</option>
-                <option value="6">June</option>
-                <option value="7">July</option>
-                <option value="8">August</option>
-                <option value="9">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-            </select>
-            <select id="easyEndDay"></select>
-        </div>
-        
-        <!-- Column Selection Section -->
-        <div style="padding: 20px; border-bottom: 1px solid var(--panel-border);">
-            <h3 style="margin: 0 0 12px 0; font-size: 0.95rem; color: var(--text-main);">Customize CSV Columns</h3>
-            <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--text-muted);">Select which data columns to include in your CSV export:</p>
-            
-            <div id="easyColumnContainer" style="display: flex; flex-direction: column; gap: 8px;">
-                <!-- Timestamp (always included, not removable) -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 0.85rem; color: var(--text-muted); min-width: 80px;">Column 1:</span>
-                    <select disabled style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--page-bg); color: var(--text-muted); cursor: not-allowed;">
-                        <option>Timestamp (required)</option>
-                    </select>
-                </div>
-                
-                <!-- Dynamic columns will be added here -->
-            </div>
-            
-            <div style="margin-top: 12px; display: flex; gap: 8px;">
-                <button id="easyAddColumn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--accent); color: white; cursor: pointer; font-size: 0.8rem;">
-                    ➕ Add Column
-                </button>
-                <button id="easyRemoveColumn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--panel-border); background: #ef4444; color: white; cursor: pointer; font-size: 0.8rem;">
-                    ➖ Remove Column
-                </button>
-            </div>
-        </div>
-        
-        <div style="padding: 20px; font-size: 0.85rem; color: var(--text-muted); text-align: center;">
-            <p style="margin: 0;">Select a date and click Download CSV to get all weather statistics for that day.</p>
-            <p style="margin: 8px 0 0 0; font-size: 0.75rem;">Includes: temperature, humidity, pressure, wind, rain, lightning, and more.</p>
-        </div>
-        
-        <!-- Download Button at Bottom -->
-        <div style="padding: 20px; text-align: center; border-top: 1px solid var(--panel-border);">
-            <button id="easyDownload" style="padding: 10px 20px; font-size: 1rem;">
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Button shadow -->
-                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
-                    <!-- Button base -->
-                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
-                    <!-- Top highlight -->
-                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
-                    <!-- Rim -->
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
-                    <!-- Text -->
-                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
-                </svg>
-                Download as CSV
-            </button>
-        </div>
-    </div>
-</div>
-{{end}}
 
 <!-- Injected app config from server -->
 <script>

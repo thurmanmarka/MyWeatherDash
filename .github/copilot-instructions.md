@@ -62,7 +62,7 @@ go run .
 go build -o weatherdash
 ./weatherdash
 ```
-Server listens on `http://localhost:8080` — static files served from `./static/`, template from `./templates/index.html`
+Server listens on `http://localhost:8081` — static files served from `./static/`, template from `./templates/index.html`
 
 ### Database Connection
 1. **No setup script provided** — assumes WeeWX MariaDB already running
