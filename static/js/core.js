@@ -1,3 +1,11 @@
+// Helper to check if now is between two times
+function isBetween(start, end) {
+    if (!start || !end) return false;
+    const now = new Date();
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    return now >= startDate && now <= endDate;
+}
 // ---------------------------------------------------------------------
 // Global chart instances
 // ---------------------------------------------------------------------
@@ -791,9 +799,12 @@ function updateCelestialDisplay() {
     const daylightHoursEl = document.getElementById('cc-daylight-hours');
     const moonPhaseEl = document.getElementById('cc-moon-phase');
     const moonriseMoonsetEl = document.getElementById('cc-moonrise-moonset');
-    const civilTwilightEl = document.getElementById('cc-civil-twilight');
-    const nauticalTwilightEl = document.getElementById('cc-nautical-twilight');
-    const astronomicalTwilightEl = document.getElementById('cc-astronomical-twilight');
+    const civilTwilightAMEl = document.getElementById('cc-civil-twilight-am');
+    const civilTwilightPMEl = document.getElementById('cc-civil-twilight-pm');
+    const nauticalTwilightAMEl = document.getElementById('cc-nautical-twilight-am');
+    const nauticalTwilightPMEl = document.getElementById('cc-nautical-twilight-pm');
+    const astronomicalTwilightAMEl = document.getElementById('cc-astronomical-twilight-am');
+    const astronomicalTwilightPMEl = document.getElementById('cc-astronomical-twilight-pm');
     const goldenHourMorningEl = document.getElementById('cc-golden-hour-morning');
     const goldenHourEveningEl = document.getElementById('cc-golden-hour-evening');
     const blueHourMorningEl = document.getElementById('cc-blue-hour-morning');
@@ -859,25 +870,42 @@ function updateCelestialDisplay() {
         moonriseMoonsetEl.textContent = `${moonrise} / ${moonset}`;
     }
 
-    // Civil Twilight (24-hour)
-    if (civilTwilightEl) {
-        const dawn = celestialData.civilDawn24 ? celestialData.civilDawn24 : formatTime24FromISO(celestialData.civilDawn);
-        const dusk = celestialData.civilDusk24 ? celestialData.civilDusk24 : formatTime24FromISO(celestialData.civilDusk);
-        civilTwilightEl.textContent = `${dawn} / ${dusk}`;
-    }
 
-    // Nautical Twilight (24-hour)
-    if (nauticalTwilightEl) {
-        const ndawn = celestialData.nauticalDawn24 ? celestialData.nauticalDawn24 : formatTime24FromISO(celestialData.nauticalDawn);
-        const ndusk = celestialData.nauticalDusk24 ? celestialData.nauticalDusk24 : formatTime24FromISO(celestialData.nauticalDusk);
-        nauticalTwilightEl.textContent = `${ndawn} / ${ndusk}`;
+    // Astronomical Twilight AM
+    if (astronomicalTwilightAMEl) {
+        let start = celestialData.astronomicalDawn24 ? celestialData.astronomicalDawn24 : formatTime24FromISO(celestialData.astronomicalDawn);
+        let end = celestialData.nauticalDawn24 ? celestialData.nauticalDawn24 : formatTime24FromISO(celestialData.nauticalDawn);
+        astronomicalTwilightAMEl.textContent = (start && end) ? `${start} - ${end}` : (start || '--');
     }
-
-    // Astronomical Twilight (24-hour)
-    if (astronomicalTwilightEl) {
-        const adawn = celestialData.astronomicalDawn24 ? celestialData.astronomicalDawn24 : formatTime24FromISO(celestialData.astronomicalDawn);
-        const adusk = celestialData.astronomicalDusk24 ? celestialData.astronomicalDusk24 : formatTime24FromISO(celestialData.astronomicalDusk);
-        astronomicalTwilightEl.textContent = `${adawn} / ${adusk}`;
+    // Nautical Twilight AM
+    if (nauticalTwilightAMEl) {
+        let start = celestialData.nauticalDawn24 ? celestialData.nauticalDawn24 : formatTime24FromISO(celestialData.nauticalDawn);
+        let end = celestialData.civilDawn24 ? celestialData.civilDawn24 : formatTime24FromISO(celestialData.civilDawn);
+        nauticalTwilightAMEl.textContent = (start && end) ? `${start} - ${end}` : (start || '--');
+    }
+    // Civil Twilight AM
+    if (civilTwilightAMEl) {
+        let start = celestialData.civilDawn24 ? celestialData.civilDawn24 : formatTime24FromISO(celestialData.civilDawn);
+        let end = celestialData.sunrise24 ? celestialData.sunrise24 : formatTime24FromISO(celestialData.sunrise);
+        civilTwilightAMEl.textContent = (start && end) ? `${start} - ${end}` : (start || '--');
+    }
+    // Civil Twilight PM
+    if (civilTwilightPMEl) {
+        let start = celestialData.sunset24 ? celestialData.sunset24 : formatTime24FromISO(celestialData.sunset);
+        let end = celestialData.civilDusk24 ? celestialData.civilDusk24 : formatTime24FromISO(celestialData.civilDusk);
+        civilTwilightPMEl.textContent = (start && end) ? `${start} - ${end}` : (start || '--');
+    }
+    // Nautical Twilight PM
+    if (nauticalTwilightPMEl) {
+        let start = celestialData.civilDusk24 ? celestialData.civilDusk24 : formatTime24FromISO(celestialData.civilDusk);
+        let end = celestialData.nauticalDusk24 ? celestialData.nauticalDusk24 : formatTime24FromISO(celestialData.nauticalDusk);
+        nauticalTwilightPMEl.textContent = (start && end) ? `${start} - ${end}` : (start || '--');
+    }
+    // Astronomical Twilight PM
+    if (astronomicalTwilightPMEl) {
+        let start = celestialData.nauticalDusk24 ? celestialData.nauticalDusk24 : formatTime24FromISO(celestialData.nauticalDusk);
+        let end = celestialData.astronomicalDusk24 ? celestialData.astronomicalDusk24 : formatTime24FromISO(celestialData.astronomicalDusk);
+        astronomicalTwilightPMEl.textContent = (start && end) ? `${start} - ${end}` : (start || '--');
     }
 
     // Golden Hour - split into morning/evening rows
@@ -935,6 +963,149 @@ function updateCelestialDisplay() {
 }
 
 function highlightCurrentCelestialPhase() {
+            // Test mode: if window._twilightTestIndex is set, highlight that phase only
+            if (window._twilightTestIndex !== undefined && window._twilightTestIndex !== null) {
+                const testOrder = [
+                    'cc-astronomical-twilight-am',
+                    'cc-nautical-twilight-am',
+                    'cc-civil-twilight-am',
+                    'cc-civil-twilight-pm',
+                    'cc-nautical-twilight-pm',
+                    'cc-astronomical-twilight-pm',
+                    'cc-blue-hour-morning',
+                    'cc-blue-hour-evening',
+                    'cc-golden-hour-morning',
+                    'cc-golden-hour-evening',
+                ];
+                const highlightRow = (id, color, border) => {
+                    const el = document.getElementById(id)?.closest('.cc-row');
+                    if (el) {
+                        el.style.backgroundColor = color;
+                        el.style.borderLeft = border;
+                    }
+                };
+                // Remove all highlights first
+                document.querySelectorAll('.cc-row').forEach(row => {
+                    row.style.backgroundColor = '';
+                    row.style.borderLeft = '';
+                });
+                const idx = window._twilightTestIndex;
+                const id = testOrder[idx];
+                // Use purple gradient for twilight
+                switch (id) {
+                    case 'cc-civil-twilight-am':
+                    case 'cc-civil-twilight-pm':
+                        highlightRow(id, 'rgba(216, 180, 254, 0.35)', '4px solid #c084fc'); break; // light purple
+                    case 'cc-nautical-twilight-am':
+                    case 'cc-nautical-twilight-pm':
+                        highlightRow(id, 'rgba(124, 58, 237, 0.32)', '4px solid #7c3aed'); break; // deeper medium purple
+                    case 'cc-astronomical-twilight-am':
+                    case 'cc-astronomical-twilight-pm':
+                        highlightRow(id, 'rgba(76, 29, 149, 0.32)', '4px solid #4c1d95'); break; // very dark purple
+                    case 'cc-blue-hour-morning':
+                    case 'cc-blue-hour-evening':
+                        highlightRow(id, 'rgba(37, 99, 235, 0.2)', '4px solid #3b82f6'); break;
+                    case 'cc-golden-hour-morning':
+                    case 'cc-golden-hour-evening':
+                        highlightRow(id, 'rgba(251, 191, 36, 0.2)', '4px solid #f59e0b'); break;
+                }
+                return;
+            }
+        // Add test button logic for cycling twilight highlights
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('cc-celestial-toggle');
+            const detailRows = document.querySelectorAll('.cc-celestial-details');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', () => {
+                    const isHidden = detailRows[0]?.style.display === 'none';
+                    detailRows.forEach(row => {
+                        row.style.display = isHidden ? 'flex' : 'none';
+                    });
+                    toggleBtn.textContent = isHidden ? 'Hide Details ▲' : 'Show Details ▼';
+                });
+            }
+
+            // Test Twilight Highlight button logic
+            const btn = document.getElementById('cc-test-twilight');
+            if (btn) {
+                const testOrder = [
+                    'cc-civil-twilight-am',
+                    'cc-civil-twilight-pm',
+                    'cc-nautical-twilight-am',
+                    'cc-nautical-twilight-pm',
+                    'cc-astronomical-twilight-am',
+                    'cc-astronomical-twilight-pm',
+                    'cc-blue-hour-morning',
+                    'cc-blue-hour-evening',
+                    'cc-golden-hour-morning',
+                    'cc-golden-hour-evening',
+                ];
+                let idx = 0;
+                btn.addEventListener('click', function() {
+                    window._twilightTestIndex = idx;
+                    highlightCurrentCelestialPhase();
+                    idx = (idx + 1) % testOrder.length;
+                });
+            }
+
+            // Update celestial phase highlighting every minute
+            setInterval(() => {
+                if (typeof highlightCurrentCelestialPhase === 'function') {
+                    // Only auto-update if not in test mode
+                    if (window._twilightTestIndex === undefined || window._twilightTestIndex === null) {
+                        highlightCurrentCelestialPhase();
+                    }
+                }
+            }, 60000); // Update every minute
+        });
+        // Civil Twilight AM (dawn)
+        if (isBetween(celestialData.civilDawn, celestialData.sunrise)) {
+            const el = document.getElementById('cc-civil-twilight-am')?.closest('.cc-row');
+            if (el) {
+                el.style.backgroundColor = isDarkMode ? 'rgba(216, 180, 254, 0.35)' : 'rgba(243, 232, 255, 0.7)';
+                el.style.borderLeft = '4px solid #c084fc';
+            }
+        }
+        // Civil Twilight PM (dusk)
+        if (isBetween(celestialData.sunset, celestialData.civilDusk)) {
+            const el = document.getElementById('cc-civil-twilight-pm')?.closest('.cc-row');
+            if (el) {
+                el.style.backgroundColor = isDarkMode ? 'rgba(216, 180, 254, 0.35)' : 'rgba(243, 232, 255, 0.7)';
+                el.style.borderLeft = '4px solid #c084fc';
+            }
+        }
+        // Nautical Twilight AM (dawn)
+        if (isBetween(celestialData.nauticalDawn, celestialData.civilDawn)) {
+            const el = document.getElementById('cc-nautical-twilight-am')?.closest('.cc-row');
+            if (el) {
+                el.style.backgroundColor = isDarkMode ? 'rgba(124, 58, 237, 0.32)' : 'rgba(221, 214, 254, 0.7)';
+                el.style.borderLeft = '4px solid #7c3aed';
+            }
+        }
+        // Nautical Twilight PM (dusk)
+        if (isBetween(celestialData.civilDusk, celestialData.nauticalDusk)) {
+            const el = document.getElementById('cc-nautical-twilight-pm')?.closest('.cc-row');
+            if (el) {
+                el.style.backgroundColor = isDarkMode ? 'rgba(124, 58, 237, 0.32)' : 'rgba(221, 214, 254, 0.7)';
+                el.style.borderLeft = '4px solid #7c3aed';
+            }
+        }
+        // Astronomical Twilight AM (dawn)
+        if (isBetween(celestialData.astronomicalDawn, celestialData.nauticalDawn)) {
+            const el = document.getElementById('cc-astronomical-twilight-am')?.closest('.cc-row');
+            if (el) {
+                el.style.backgroundColor = isDarkMode ? 'rgba(76, 29, 149, 0.32)' : 'rgba(237, 233, 254, 0.7)';
+                el.style.borderLeft = '4px solid #4c1d95';
+            }
+        }
+        // Astronomical Twilight PM (dusk)
+        if (isBetween(celestialData.nauticalDusk, celestialData.astronomicalDusk)) {
+            const el = document.getElementById('cc-astronomical-twilight-pm')?.closest('.cc-row');
+            if (el) {
+                el.style.backgroundColor = isDarkMode ? 'rgba(76, 29, 149, 0.32)' : 'rgba(237, 233, 254, 0.7)';
+                el.style.borderLeft = '4px solid #4c1d95';
+            }
+        }
     if (!celestialData) return;
     
     const now = new Date();
@@ -945,13 +1116,6 @@ function highlightCurrentCelestialPhase() {
         row.style.borderLeft = '';
     });
     
-    // Helper to check if now is between two times
-    const isBetween = (start, end) => {
-        if (!start || !end) return false;
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        return now >= startDate && now <= endDate;
-    };
     
     // Check each phase and apply appropriate highlight
     const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -1046,11 +1210,11 @@ function getMoonPhaseSVG(fraction) {
     }
 }
 
-// Celestial details toggle
+// Celestial details toggle and test button logic
 document.addEventListener('DOMContentLoaded', () => {
     const toggleBtn = document.getElementById('cc-celestial-toggle');
     const detailRows = document.querySelectorAll('.cc-celestial-details');
-    
+
     if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
             const isHidden = detailRows[0]?.style.display === 'none';
@@ -1060,11 +1224,37 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleBtn.textContent = isHidden ? 'Hide Details ▲' : 'Show Details ▼';
         });
     }
-    
+
+    // Test Twilight Highlight button logic
+    const btn = document.getElementById('cc-test-twilight');
+    if (btn) {
+        const testOrder = [
+            'cc-civil-twilight-am',
+            'cc-civil-twilight-pm',
+            'cc-nautical-twilight-am',
+            'cc-nautical-twilight-pm',
+            'cc-astronomical-twilight-am',
+            'cc-astronomical-twilight-pm',
+            'cc-blue-hour-morning',
+            'cc-blue-hour-evening',
+            'cc-golden-hour-morning',
+            'cc-golden-hour-evening',
+        ];
+        let idx = 0;
+        btn.addEventListener('click', function() {
+            window._twilightTestIndex = idx;
+            highlightCurrentCelestialPhase();
+            idx = (idx + 1) % testOrder.length;
+        });
+    }
+
     // Update celestial phase highlighting every minute
     setInterval(() => {
         if (typeof highlightCurrentCelestialPhase === 'function') {
-            highlightCurrentCelestialPhase();
+            // Only auto-update if not in test mode
+            if (window._twilightTestIndex === undefined || window._twilightTestIndex === null) {
+                highlightCurrentCelestialPhase();
+            }
         }
     }, 60000); // Update every minute
 });
