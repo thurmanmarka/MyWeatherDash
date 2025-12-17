@@ -124,6 +124,9 @@ type CelestialData struct {
 	BlueHourMorningEnd24   string     `json:"blueHourMorningEnd24,omitempty"`
 	BlueHourEveningStart24 string     `json:"blueHourEveningStart24,omitempty"`
 	BlueHourEveningEnd24   string     `json:"blueHourEveningEnd24,omitempty"`
+
+	// Active phases for current time (for UI highlighting)
+	ActivePhases []string `json:"activePhases,omitempty"`
 }
 
 type MoonPhase struct {

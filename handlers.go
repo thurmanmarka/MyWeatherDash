@@ -1729,6 +1729,53 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 		celestial.BlueHourEveningEnd24 = blueHour.Evening.End.In(loc).Format("15:04")
 	}
 
+	// --- Compute ActivePhase for current time ---
+	now := time.Now().In(loc)
+	var phases []string
+	isBetween := func(start, end *time.Time) bool {
+		if start == nil || end == nil {
+			return false
+		}
+		return !now.Before(*start) && now.Before(*end)
+	}
+	// Check all possible phases and add all that match
+	if isBetween(celestial.AstronomicalDawn, celestial.NauticalDawn) {
+		phases = append(phases, "astronomical-twilight-am")
+	}
+	if isBetween(celestial.NauticalDawn, celestial.CivilDawn) {
+		phases = append(phases, "nautical-twilight-am")
+	}
+	if isBetween(celestial.CivilDawn, celestial.Sunrise) {
+		phases = append(phases, "civil-twilight-am")
+	}
+	if isBetween(celestial.BlueHourMorningStart, celestial.BlueHourMorningEnd) {
+		phases = append(phases, "blue-hour-morning")
+	}
+	if isBetween(celestial.GoldenHourMorningStart, celestial.GoldenHourMorningEnd) {
+		phases = append(phases, "golden-hour-morning")
+	}
+	if isBetween(celestial.Sunrise, celestial.Sunset) {
+		phases = append(phases, "daylight")
+	}
+	if isBetween(celestial.GoldenHourEveningStart, celestial.GoldenHourEveningEnd) {
+		phases = append(phases, "golden-hour-evening")
+	}
+	if isBetween(celestial.BlueHourEveningStart, celestial.BlueHourEveningEnd) {
+		phases = append(phases, "blue-hour-evening")
+	}
+	if isBetween(celestial.Sunset, celestial.CivilDusk) {
+		phases = append(phases, "civil-twilight-pm")
+	}
+	if isBetween(celestial.CivilDusk, celestial.NauticalDusk) {
+		phases = append(phases, "nautical-twilight-pm")
+	}
+	if isBetween(celestial.NauticalDusk, celestial.AstronomicalDusk) {
+		phases = append(phases, "astronomical-twilight-pm")
+	}
+	celestial.ActivePhases = phases
+
+	log.Printf("[Celestial] Computed activePhases: %v for now=%s", phases, now.Format(time.RFC3339))
+
 	return celestial, nil
 }
 
