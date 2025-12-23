@@ -53,6 +53,7 @@
         label.textContent = `Column ${columnCount + 1}:`;
 
         const select = document.createElement('select');
+        select.name = `easyColumn${columnCount}`;
         select.style.flex = '1';
         select.style.padding = '6px';
         select.style.borderRadius = '4px';

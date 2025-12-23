@@ -1,0 +1,6 @@
+/* Celestial period highlight class, color set via inline style for each phase */
+.cc-highlight {
+  background-color: var(--highlight-bg, rgba(37, 99, 235, 0.2));
+  border-left: 4px solid var(--highlight-border, #3b82f6);
+  transition: background-color 0.3s, border-color 0.3s;
+}

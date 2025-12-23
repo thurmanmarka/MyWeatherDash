@@ -769,6 +769,7 @@
         .stats-label, .stats-val { font-size: 0.78rem; }
         .stats-val { font-weight: normal; }
     </style>
+    <link rel="stylesheet" href="/static/css/celestial-highlight.css">
 </head>
 <body>
 <div class="page-shell">
@@ -1418,9 +1419,9 @@
             <button class="noaa-modal-close" id="easyModalClose">&times;</button>
         </div>
         <div class="noaa-modal-controls">
-            <label style="font-size: 0.85rem; color: var(--text-muted);">Start Date:</label>
-            <select id="easyStartYear"></select>
-            <select id="easyStartMonth">
+            <label for="easyStartYear" style="font-size: 0.85rem; color: var(--text-muted);">Start Date:</label>
+            <select id="easyStartYear" name="easyStartYear"></select>
+            <select id="easyStartMonth" name="easyStartMonth">
                 <option value="1">January</option>
                 <option value="2">February</option>
                 <option value="3">March</option>
@@ -1434,13 +1435,13 @@
                 <option value="11">November</option>
                 <option value="12">December</option>
             </select>
-            <select id="easyStartDay"></select>
+            <select id="easyStartDay" name="easyStartDay"></select>
         </div>
         
         <div class="noaa-modal-controls" style="margin-top: 10px;">
-            <label style="font-size: 0.85rem; color: var(--text-muted);">End Date:</label>
-            <select id="easyEndYear"></select>
-            <select id="easyEndMonth">
+            <label for="easyEndYear" style="font-size: 0.85rem; color: var(--text-muted);">End Date:</label>
+            <select id="easyEndYear" name="easyEndYear"></select>
+            <select id="easyEndMonth" name="easyEndMonth">
                 <option value="1">January</option>
                 <option value="2">February</option>
                 <option value="3">March</option>
@@ -1454,7 +1455,7 @@
                 <option value="11">November</option>
                 <option value="12">December</option>
             </select>
-            <select id="easyEndDay"></select>
+            <select id="easyEndDay" name="easyEndDay"></select>
         </div>
         
         <!-- Column Selection Section -->
@@ -1466,7 +1467,7 @@
                 <!-- Timestamp (always included, not removable) -->
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 0.85rem; color: var(--text-muted); min-width: 80px;">Column 1:</span>
-                    <select disabled style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--page-bg); color: var(--text-muted); cursor: not-allowed;">
+                    <select disabled name="csv-timestamp" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--page-bg); color: var(--text-muted); cursor: not-allowed;">
                         <option>Timestamp (required)</option>
                     </select>
                 </div>

@@ -1,3 +1,16 @@
+// Format ISO timestamp to 24-hour HH:MM
+function formatTime24FromISO(timeStr) {
+    if (!timeStr) return '--';
+    // If already a short 24h string provided by backend (e.g. "07:08"), return it
+    if (typeof timeStr === 'string' && /^\d{1,2}:\d{2}$/.test(timeStr)) {
+        // Ensure zero-padded hour
+        const parts = timeStr.split(':');
+        return parts[0].padStart(2, '0') + ':' + parts[1];
+    }
+    const d = new Date(timeStr);
+    if (isNaN(d.getTime())) return '--';
+    return (d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'));
+}
 // --- Statistics Panel: Rain & Lightning Totals ---
 (function(){
     async function fetchJSON(url) {
@@ -219,7 +232,8 @@ async function loadWeather() {
         const res = await fetch('/api/weather?range=' + encodeURIComponent(currentRange));
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
-        const data = await res.json();
+        let data = await res.json();
+        if (data === null) data = [];
         if (!Array.isArray(data) || data.length === 0) {
             statusEl.textContent = 'No weather data for selected range.';
             latestWeather = null;

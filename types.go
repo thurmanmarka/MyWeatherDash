@@ -127,6 +127,7 @@ type CelestialData struct {
 
 	// Active phases for current time (for UI highlighting)
 	ActivePhases []string `json:"activePhases,omitempty"`
+	Now          string   `json:"now,omitempty"` // ISO8601, station local time
 }
 
 type MoonPhase struct {

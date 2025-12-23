@@ -1773,6 +1773,8 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 		phases = append(phases, "astronomical-twilight-pm")
 	}
 	celestial.ActivePhases = phases
+	// Add backend authoritative 'now' field (ISO8601, station local time)
+	celestial.Now = now.Format(time.RFC3339)
 
 	log.Printf("[Celestial] Computed activePhases: %v for now=%s", phases, now.Format(time.RFC3339))
 
