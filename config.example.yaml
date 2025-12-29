@@ -9,8 +9,8 @@ db:
 
 # Server configuration
 server:
-  # HTTP server port (defaults to 8081 if not set)
-  port: 8081
+  # HTTP server port (defaults to 8080 if not set)
+  port: 8080
   # Server-Sent Events poll interval (seconds) — how often server checks DB for new rows
   sse_poll_seconds: 60
   # Client poll interval (seconds) — how often front-end calls loadAll() if SSE is unavailable. 0 disables polling.
@@ -22,10 +22,3 @@ location:
   latitude: 0.0
   longitude: 0.0
   altitude: 0  # feet above sea level
-
-# Alert thresholds
-alerts:
-  extreme_heat: 95.0   # °F heat index threshold
-  extreme_cold: 32.0   # °F wind chill threshold
-  wind_speed: 20.0     # mph sustained wind threshold
-  wind_gust: 25.0      # mph wind gust threshold

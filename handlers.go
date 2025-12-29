@@ -17,38 +17,7 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// -------------------- auth helpers --------------------
-
-// getUserRole extracts the user role from hub auth headers
-func getUserRole(r *http.Request) string {
-	role := r.Header.Get("X-Hub-Role")
-	user := r.Header.Get("X-Hub-User")
-	auth := r.Header.Get("X-Hub-Authenticated")
-	log.Printf("Auth headers - User: %s, Role: %s, Authenticated: %s", user, role, auth)
-	if role == "" {
-		role = "admin" // Default to admin if no header (standalone mode)
-	}
-	return role
-}
-
-// isAdmin checks if the user has admin or user role (full permissions)
-func isAdmin(r *http.Request) bool {
-	role := getUserRole(r)
-	return role == "admin" || role == "user"
-}
-
-// requireAdmin is middleware that blocks non-admin users
-func requireAdmin(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !isAdmin(r) {
-			http.Error(w, "Forbidden: Admin access required", http.StatusForbidden)
-			return
-		}
-		next(w, r)
-	}
-}
-
-// -------------------- cached celestial --------------------
+// cachedCelestial holds a computed CelestialData and an expiry time
 type cachedCelestial struct {
 	data   CelestialData
 	expiry time.Time
@@ -65,232 +34,20 @@ var celestialGroup singleflight.Group
 
 // -------------------- helpers --------------------
 
-func handleLanding(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	tmpl := `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>MyWeatherDash Platform</title>
-    <style>
-        :root {
-            --bg: #e7edf4;
-            --page-bg: #f5f7fb;
-            --panel-bg: #ffffff;
-            --panel-border: #d2d7e0;
-            --accent: #2563eb;
-            --accent-hover: #1d4ed8;
-            --text-main: #1f2933;
-            --text-muted: #6b7280;
-        }
-
-        [data-theme="dark"] {
-            --bg: #0f172a;
-            --page-bg: #1e293b;
-            --panel-bg: #334155;
-            --panel-border: #475569;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: radial-gradient(circle at top left, var(--bg), var(--page-bg) 70%);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .container {
-            max-width: 800px;
-            width: 100%;
-            background: var(--panel-bg);
-            border-radius: 16px;
-            padding: 48px;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
-            border: 1px solid var(--panel-border);
-        }
-
-        h1 {
-            margin: 0 0 12px 0;
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--text-main);
-            text-align: center;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 1.1rem;
-            margin-bottom: 48px;
-        }
-
-        .modules {
-            display: grid;
-            gap: 20px;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        }
-
-        .module-card {
-            background: var(--page-bg);
-            border: 2px solid var(--panel-border);
-            border-radius: 12px;
-            padding: 32px;
-            text-decoration: none;
-            color: var(--text-main);
-            transition: all 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
-
-        .module-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.15);
-        }
-
-        .module-icon {
-            font-size: 3rem;
-            margin-bottom: 16px;
-        }
-
-        .module-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .module-description {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-        }
-
-        .module-card.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .module-card.disabled:hover {
-            transform: none;
-            border-color: var(--panel-border);
-            box-shadow: none;
-        }
-
-        .coming-soon {
-            display: inline-block;
-            background: var(--accent);
-            color: white;
-            font-size: 0.7rem;
-            padding: 2px 8px;
-            border-radius: 999px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-top: 8px;
-        }
-
-        .footer {
-            margin-top: 48px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 600px) {
-            .container {
-                padding: 32px 24px;
-            }
-            h1 {
-                font-size: 2rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🏠 Home Services Hub</h1>
-        <p class="subtitle">Your centralized monitoring and management platform</p>
-        
-        <div class="modules">
-            <a href="/weather" class="module-card">
-                <div class="module-icon">☀️</div>
-                <div class="module-title">Weather Dashboard</div>
-                <div class="module-description">Real-time weather data, charts, and statistics</div>
-            </a>
-            
-            <div class="module-card disabled">
-                <div class="module-icon">🌐</div>
-                <div class="module-title">Network Monitor</div>
-                <div class="module-description">SNMP monitoring for network devices</div>
-                <span class="coming-soon">Coming Soon</span>
-            </div>
-        </div>
-
-        <div class="footer">
-            Home Services Hub v2.0.0 | Powered by Go & nginx
-        </div>
-    </div>
-</body>
-</html>`
-	w.Write([]byte(tmpl))
-}
-
-func handleWeatherDash(w http.ResponseWriter, r *http.Request) {
+func handleHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	// Provide client-side polling interval (ms) to the template
 	data := struct {
 		ClientPollMs int
 		AssetVersion string
 		LocationName string
-		ExtremeHeat  float64
-		ExtremeCold  float64
-		IsAdmin      bool
-		UserRole     string
 	}{
 		ClientPollMs: appConfig.Server.ClientPollSeconds * 1000,
 		AssetVersion: time.Now().Format("20060102T150405"),
 		LocationName: appConfig.Location.Name,
-		ExtremeHeat:  appConfig.Alerts.ExtremeHeat,
-		ExtremeCold:  appConfig.Alerts.ExtremeCold,
-		IsAdmin:      isAdmin(r),
-		UserRole:     getUserRole(r),
 	}
 
 	if err := tmplIndex.Execute(w, data); err != nil {
-		http.Error(w, "Template error", http.StatusInternalServerError)
-	}
-}
-
-func handleKiosk(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	// Kiosk mode - same data but different template (no admin controls, auto-expanded sections)
-	data := struct {
-		ClientPollMs int
-		AssetVersion string
-		LocationName string
-		ExtremeHeat  float64
-		ExtremeCold  float64
-	}{
-		ClientPollMs: appConfig.Server.ClientPollSeconds * 1000,
-		AssetVersion: time.Now().Format("20060102T150405"),
-		LocationName: appConfig.Location.Name,
-		ExtremeHeat:  appConfig.Alerts.ExtremeHeat,
-		ExtremeCold:  appConfig.Alerts.ExtremeCold,
-	}
-
-	if err := tmplKiosk.Execute(w, data); err != nil {
 		http.Error(w, "Template error", http.StatusInternalServerError)
 	}
 }
@@ -728,8 +485,10 @@ func handleWind(w http.ResponseWriter, r *http.Request) {
 			latest.Compass = "--"
 		}
 
-		// Strong wind detection using config thresholds
-		latest.Strong = (latest.Speed >= appConfig.Alerts.WindSpeed || latest.Gust >= appConfig.Alerts.WindGust)
+		// Strong wind detection (speed >= 20 mph OR gust >= 25 mph)
+		const WIND_STRONG_SPEED = 20.0
+		const WIND_STRONG_GUST = 25.0
+		latest.Strong = (latest.Speed >= WIND_STRONG_SPEED || latest.Gust >= WIND_STRONG_GUST)
 	}
 
 	if err := json.NewEncoder(w).Encode(readings); err != nil {
@@ -834,7 +593,7 @@ func handleLightning(w http.ResponseWriter, r *http.Request) {
 	since := time.Now().Add(-dur).Unix()
 
 	rows, err := db.Query(`
-        SELECT dateTime, lightning_strike_count, lightning_distance
+        SELECT dateTime, lightning_strike_count
         FROM archive
         WHERE dateTime >= ? AND lightning_strike_count IS NOT NULL
         ORDER BY dateTime ASC
@@ -850,9 +609,8 @@ func handleLightning(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var epochSec int64
 		var strikes float64
-		var distance sql.NullFloat64
 
-		if err := rows.Scan(&epochSec, &strikes, &distance); err != nil {
+		if err := rows.Scan(&epochSec, &strikes); err != nil {
 			log.Println("DB scan error (lightning):", err)
 			http.Error(w, "DB scan error", http.StatusInternalServerError)
 			return
@@ -860,15 +618,9 @@ func handleLightning(w http.ResponseWriter, r *http.Request) {
 
 		ts := time.Unix(epochSec, 0)
 
-		var distPtr *float64
-		if distance.Valid {
-			distPtr = &distance.Float64
-		}
-
 		readings = append(readings, LightningReading{
 			Timestamp: ts,
 			Strikes:   strikes,
-			Distance:  distPtr,
 		})
 	}
 
@@ -1007,12 +759,6 @@ func handleInsideHumidity(w http.ResponseWriter, r *http.Request) {
 // -------------------- /api/noaa/monthly --------------------
 
 func handleNOAAMonthly(w http.ResponseWriter, r *http.Request) {
-	// Require admin role for NOAA reports
-	if !isAdmin(r) {
-		http.Error(w, "Forbidden: NOAA reports require admin access", http.StatusForbidden)
-		return
-	}
-
 	w.Header().Set("Content-Type", "text/plain")
 	yearStr := r.URL.Query().Get("year")
 	monthStr := r.URL.Query().Get("month")
@@ -1043,12 +789,6 @@ func handleNOAAMonthly(w http.ResponseWriter, r *http.Request) {
 // -------------------- /api/noaa/yearly --------------------
 
 func handleNOAAYearly(w http.ResponseWriter, r *http.Request) {
-	// Require admin role for NOAA reports
-	if !isAdmin(r) {
-		http.Error(w, "Forbidden: NOAA reports require admin access", http.StatusForbidden)
-		return
-	}
-
 	w.Header().Set("Content-Type", "text/plain")
 	yearStr := r.URL.Query().Get("year")
 	forceStr := r.URL.Query().Get("force")
@@ -1083,7 +823,7 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 
 	// Single query to fetch all necessary data
 	rows, err := db.Query(`
-		SELECT dateTime, rain, rainRate, lightning_strike_count, lightning_distance,
+		SELECT dateTime, rain, rainRate, lightning_strike_count,
 		       outTemp, dewpoint, outHumidity, barometer,
 		       heatindex, windchill, windSpeed, windGust, windDir,
 		       inTemp, inHumidity
@@ -1103,10 +843,6 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 	var rainMidnightTotal float64
 	var strikeRangeTotal int
 	var strikeMidnightTotal int
-
-	// Lightning distance (closest/minimum)
-	var lightningDistMid float64 = 999   // closest today (min value)
-	var lightningDistRange float64 = 999 // closest in range (min value)
 
 	// Temperature metrics
 	var tHiMid, fHiMid, dHiMid, hHiMid, bHiMid float64 = -999, -999, -999, -999, -999
@@ -1135,13 +871,12 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		var epochSec int64
 		var rain, rainRate sql.NullFloat64
 		var strikes sql.NullInt64
-		var lightningDist sql.NullFloat64
 		var outTemp, dewpoint, outHumidity, barometer sql.NullFloat64
 		var heatindex, windchill sql.NullFloat64
 		var windSpeed, windGust, windDir sql.NullFloat64
 		var inTemp, inHumidity sql.NullFloat64
 
-		if err := rows.Scan(&epochSec, &rain, &rainRate, &strikes, &lightningDist,
+		if err := rows.Scan(&epochSec, &rain, &rainRate, &strikes,
 			&outTemp, &dewpoint, &outHumidity, &barometer,
 			&heatindex, &windchill, &windSpeed, &windGust, &windDir,
 			&inTemp, &inHumidity); err != nil {
@@ -1165,16 +900,6 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 			strikeRangeTotal += int(strikes.Int64)
 			if isMidnight {
 				strikeMidnightTotal += int(strikes.Int64)
-			}
-		}
-
-		// Lightning distance (track minimum/closest)
-		if lightningDist.Valid && lightningDist.Float64 > 0 {
-			if lightningDist.Float64 < lightningDistRange {
-				lightningDistRange = lightningDist.Float64
-			}
-			if isMidnight && lightningDist.Float64 < lightningDistMid {
-				lightningDistMid = lightningDist.Float64
 			}
 		}
 
@@ -1373,7 +1098,6 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 
 	// Format helper functions
 	fmt0 := func(v float64) string { return fmt.Sprintf("%d", int(math.Round(v))) }
-	fmt1 := func(v float64) string { return fmt.Sprintf("%.1f", v) }
 	fmt2 := func(v float64) string { return fmt.Sprintf("%.2f", v) }
 	hiLo := func(hi, lo float64, formatter func(float64) string) string {
 		if hi == -999 || lo == 999 {
@@ -1449,14 +1173,27 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		StrikesToday: strikeMidnightTotal,
 		StrikesRange: strikeRangeTotal,
 
-		TempToday: hiLo(tHiMid, tLoMid, fmt1),
-		TempRange: hiLo(tHiRange, tLoRange, fmt1),
+		TempToday: hiLo(tHiMid, tLoMid, fmt0),
+		TempRange: hiLo(tHiRange, tLoRange, fmt0),
 
-		FeelsToday: hiLo(fHiMid, fLoMid, fmt1),
-		FeelsRange: hiLo(fHiRange, fLoRange, fmt1),
+		FeelsToday: hiLo(fHiMid, fLoMid, fmt0),
+		FeelsRange: hiLo(fHiRange, fLoRange, fmt0),
 
-		DewToday: hiLo(dHiMid, dLoMid, fmt1),
-		DewRange: hiLo(dHiRange, dLoRange, fmt1),
+		WindchillToday: func() string {
+			if fLoMid == 999 {
+				return "--"
+			}
+			return fmt0(fLoMid)
+		}(),
+		WindchillRange: func() string {
+			if fLoRange == 999 {
+				return "--"
+			}
+			return fmt0(fLoRange)
+		}(),
+
+		DewToday: hiLo(dHiMid, dLoMid, fmt0),
+		DewRange: hiLo(dHiRange, dLoRange, fmt0),
 
 		HumidityToday: hiLo(hHiMid, hLoMid, fmt0),
 		HumidityRange: hiLo(hHiRange, hLoRange, fmt0),
@@ -1482,21 +1219,11 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		RainRateToday: fmt2(rrMid),
 		RainRateRange: fmt2(rrRange),
 
-		LightningDistToday: func() string {
-			if lightningDistMid < 999 {
-				return fmt.Sprintf("%.1f", lightningDistMid)
-			}
-			return "--"
-		}(),
-		LightningDistRange: func() string {
-			if lightningDistRange < 999 {
-				return fmt.Sprintf("%.1f", lightningDistRange)
-			}
-			return "--"
-		}(),
+		LightningDistToday: "--",
+		LightningDistRange: "--",
 
-		InsideTempToday: hiLo(inTHiMid, inTLoMid, fmt1),
-		InsideTempRange: hiLo(inTHiRange, inTLoRange, fmt1),
+		InsideTempToday: hiLo(inTHiMid, inTLoMid, fmt0),
+		InsideTempRange: hiLo(inTHiRange, inTLoRange, fmt0),
 
 		InsideHumToday: hiLo(inHHiMid, inHLoMid, fmt0),
 		InsideHumRange: hiLo(inHHiRange, inHLoRange, fmt0),
@@ -1618,9 +1345,6 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 	goldenHour, _ := astroglide.GoldenHourFor(coords, date)
 	blueHour, _ := astroglide.BlueHourFor(coords, date)
 
-	// Compute daylight hours (duration between sunrise and sunset)
-	daylightHours, daylightErr := astroglide.DaylightHours(coords, date)
-
 	// Build response
 	celestial := CelestialData{
 		Date:     date.Format("2006-01-02"),
@@ -1639,15 +1363,6 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 		}
 	}
 
-	// Include daylight hours if calculation succeeded
-	if daylightErr == nil {
-		celestial.DaylightHours = daylightHours
-		// Format as "Xh Ym" for display
-		hours := int(daylightHours)
-		minutes := int((daylightHours - float64(hours)) * 60)
-		celestial.DaylightHoursFormatted = fmt.Sprintf("%dh %dm", hours, minutes)
-	}
-
 	if moonErr == nil || moonErr == astroglide.ErrNoRiseNoSet {
 		if !moonRS.Rise.IsZero() {
 			celestial.Moonrise = &moonRS.Rise
@@ -1661,13 +1376,11 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 
 	// Add moon phase if available
 	if phaseErr == nil {
-		percentage := int(moonPhase.Fraction * 100)
 		celestial.MoonPhase = &MoonPhase{
 			Fraction:   moonPhase.Fraction,
 			Elongation: moonPhase.Elongation,
 			Waxing:     moonPhase.Waxing,
 			Name:       moonPhase.Name,
-			Percentage: percentage,
 		}
 	}
 
@@ -1728,55 +1441,6 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 		celestial.BlueHourEveningStart24 = blueHour.Evening.Start.In(loc).Format("15:04")
 		celestial.BlueHourEveningEnd24 = blueHour.Evening.End.In(loc).Format("15:04")
 	}
-
-	// --- Compute ActivePhase for current time ---
-	now := time.Now().In(loc)
-	var phases []string
-	isBetween := func(start, end *time.Time) bool {
-		if start == nil || end == nil {
-			return false
-		}
-		return !now.Before(*start) && now.Before(*end)
-	}
-	// Check all possible phases and add all that match
-	if isBetween(celestial.AstronomicalDawn, celestial.NauticalDawn) {
-		phases = append(phases, "astronomical-twilight-am")
-	}
-	if isBetween(celestial.NauticalDawn, celestial.CivilDawn) {
-		phases = append(phases, "nautical-twilight-am")
-	}
-	if isBetween(celestial.CivilDawn, celestial.Sunrise) {
-		phases = append(phases, "civil-twilight-am")
-	}
-	if isBetween(celestial.BlueHourMorningStart, celestial.BlueHourMorningEnd) {
-		phases = append(phases, "blue-hour-morning")
-	}
-	if isBetween(celestial.GoldenHourMorningStart, celestial.GoldenHourMorningEnd) {
-		phases = append(phases, "golden-hour-morning")
-	}
-	if isBetween(celestial.Sunrise, celestial.Sunset) {
-		phases = append(phases, "daylight")
-	}
-	if isBetween(celestial.GoldenHourEveningStart, celestial.GoldenHourEveningEnd) {
-		phases = append(phases, "golden-hour-evening")
-	}
-	if isBetween(celestial.BlueHourEveningStart, celestial.BlueHourEveningEnd) {
-		phases = append(phases, "blue-hour-evening")
-	}
-	if isBetween(celestial.Sunset, celestial.CivilDusk) {
-		phases = append(phases, "civil-twilight-pm")
-	}
-	if isBetween(celestial.CivilDusk, celestial.NauticalDusk) {
-		phases = append(phases, "nautical-twilight-pm")
-	}
-	if isBetween(celestial.NauticalDusk, celestial.AstronomicalDusk) {
-		phases = append(phases, "astronomical-twilight-pm")
-	}
-	celestial.ActivePhases = phases
-	// Add backend authoritative 'now' field (ISO8601, station local time)
-	celestial.Now = now.Format(time.RFC3339)
-
-	log.Printf("[Celestial] Computed activePhases: %v for now=%s", phases, now.Format(time.RFC3339))
 
 	return celestial, nil
 }
@@ -1846,350 +1510,4 @@ func refreshCelestialCacheDaily(stop <-chan struct{}) {
 			return
 		}
 	}
-}
-
-// -------------------- /api/csv/daily --------------------
-
-func handleCSVDaily(w http.ResponseWriter, r *http.Request) {
-	// Get date parameters
-	yearStr := r.URL.Query().Get("year")
-	monthStr := r.URL.Query().Get("month")
-	dayStr := r.URL.Query().Get("day")
-	columnsParam := r.URL.Query().Get("columns")
-
-	if yearStr == "" || monthStr == "" || dayStr == "" {
-		http.Error(w, "Missing required parameters: year, month, day", http.StatusBadRequest)
-		return
-	}
-
-	// Parse date
-	dateStr := fmt.Sprintf("%s-%s-%s", yearStr, monthStr, dayStr)
-	targetDate, err := time.Parse("2006-01-02", dateStr)
-	if err != nil {
-		http.Error(w, "Invalid date format", http.StatusBadRequest)
-		return
-	}
-
-	// Get local timezone for midnight calculations
-	loc, err := time.LoadLocation("America/Phoenix")
-	if err != nil {
-		loc = time.Local
-	}
-
-	// Calculate start and end times (midnight to midnight in local time)
-	startOfDay := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, loc)
-	endOfDay := startOfDay.Add(24 * time.Hour)
-
-	startUnix := startOfDay.Unix()
-	endUnix := endOfDay.Unix()
-
-	// Parse columns parameter (default to all columns if not specified)
-	requestedColumns := []string{
-		"dateTime", "outTemp", "dewpoint", "outHumidity", "barometer",
-		"heatindex", "windchill", "windSpeed", "windGust", "windDir",
-		"rainRate", "rain", "lightning_strike_count", "lightning_distance",
-		"inTemp", "inHumidity",
-	}
-
-	if columnsParam != "" {
-		requestedColumns = strings.Split(columnsParam, ",")
-		// Validate that dateTime is always first
-		if len(requestedColumns) == 0 || requestedColumns[0] != "dateTime" {
-			http.Error(w, "Timestamp (dateTime) must be the first column", http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Build SQL query dynamically
-	selectClause := strings.Join(requestedColumns, ", ")
-	query := fmt.Sprintf("SELECT %s FROM archive WHERE dateTime >= ? AND dateTime < ? ORDER BY dateTime ASC", selectClause)
-
-	rows, err := db.Query(query, startUnix, endUnix)
-	if err != nil {
-		log.Println("CSV query error:", err)
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	// Set headers for CSV download
-	w.Header().Set("Content-Type", "text/csv")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"weather_%s.csv\"", dateStr))
-
-	// Column labels mapping
-	columnLabels := map[string]string{
-		"dateTime":               "Timestamp",
-		"outTemp":                "Temperature_F",
-		"dewpoint":               "Dewpoint_F",
-		"outHumidity":            "Humidity_Pct",
-		"barometer":              "Barometer_inHg",
-		"heatindex":              "HeatIndex_F",
-		"windchill":              "WindChill_F",
-		"windSpeed":              "WindSpeed_mph",
-		"windGust":               "WindGust_mph",
-		"windDir":                "WindDirection_deg",
-		"rainRate":               "RainRate_in_hr",
-		"rain":                   "Rain_in",
-		"lightning_strike_count": "LightningStrikes",
-		"lightning_distance":     "LightningDistance_mi",
-		"inTemp":                 "InsideTemp_F",
-		"inHumidity":             "InsideHumidity_Pct",
-	}
-
-	// Write CSV header
-	headerParts := make([]string, len(requestedColumns))
-	for i, col := range requestedColumns {
-		if label, ok := columnLabels[col]; ok {
-			headerParts[i] = label
-		} else {
-			headerParts[i] = col
-		}
-	}
-	fmt.Fprintf(w, "%s\n", strings.Join(headerParts, ","))
-
-	// Helper to format nullable float
-	formatFloat := func(nf sql.NullFloat64) string {
-		if nf.Valid {
-			return fmt.Sprintf("%.2f", nf.Float64)
-		}
-		return ""
-	}
-
-	formatInt := func(ni sql.NullInt64) string {
-		if ni.Valid {
-			return fmt.Sprintf("%d", ni.Int64)
-		}
-		return ""
-	}
-
-	// Write data rows
-	rowCount := 0
-	for rows.Next() {
-		// Prepare scan destinations based on requested columns
-		scanDest := make([]interface{}, len(requestedColumns))
-		values := make([]string, len(requestedColumns))
-
-		for i, col := range requestedColumns {
-			switch col {
-			case "dateTime":
-				var epochSec int64
-				scanDest[i] = &epochSec
-			case "lightning_strike_count":
-				var val sql.NullInt64
-				scanDest[i] = &val
-			default:
-				var val sql.NullFloat64
-				scanDest[i] = &val
-			}
-		}
-
-		if err := rows.Scan(scanDest...); err != nil {
-			log.Println("CSV scan error:", err)
-			continue
-		}
-
-		// Format values for CSV output
-		for i, col := range requestedColumns {
-			switch col {
-			case "dateTime":
-				epochSec := *scanDest[i].(*int64)
-				ts := time.Unix(epochSec, 0).In(loc)
-				values[i] = ts.Format("2006-01-02 15:04:05")
-			case "lightning_strike_count":
-				values[i] = formatInt(*scanDest[i].(*sql.NullInt64))
-			default:
-				values[i] = formatFloat(*scanDest[i].(*sql.NullFloat64))
-			}
-		}
-
-		fmt.Fprintf(w, "%s\n", strings.Join(values, ","))
-		rowCount++
-	}
-
-	if err := rows.Err(); err != nil {
-		log.Println("CSV rows error:", err)
-	}
-
-	log.Printf("[CSV] Generated daily CSV for %s: %d rows, %d columns\n", dateStr, rowCount, len(requestedColumns))
-}
-
-func handleCSVRange(w http.ResponseWriter, r *http.Request) {
-	// Get date range parameters
-	startYearStr := r.URL.Query().Get("startYear")
-	startMonthStr := r.URL.Query().Get("startMonth")
-	startDayStr := r.URL.Query().Get("startDay")
-	endYearStr := r.URL.Query().Get("endYear")
-	endMonthStr := r.URL.Query().Get("endMonth")
-	endDayStr := r.URL.Query().Get("endDay")
-	columnsParam := r.URL.Query().Get("columns")
-
-	if startYearStr == "" || startMonthStr == "" || startDayStr == "" ||
-		endYearStr == "" || endMonthStr == "" || endDayStr == "" {
-		http.Error(w, "Missing required parameters: startYear, startMonth, startDay, endYear, endMonth, endDay", http.StatusBadRequest)
-		return
-	}
-
-	// Parse start date
-	startDateStr := fmt.Sprintf("%s-%s-%s", startYearStr, startMonthStr, startDayStr)
-	startDate, err := time.Parse("2006-01-02", startDateStr)
-	if err != nil {
-		http.Error(w, "Invalid start date format", http.StatusBadRequest)
-		return
-	}
-
-	// Parse end date
-	endDateStr := fmt.Sprintf("%s-%s-%s", endYearStr, endMonthStr, endDayStr)
-	endDate, err := time.Parse("2006-01-02", endDateStr)
-	if err != nil {
-		http.Error(w, "Invalid end date format", http.StatusBadRequest)
-		return
-	}
-
-	// Validate date range
-	if startDate.After(endDate) {
-		http.Error(w, "Start date must be before or equal to end date", http.StatusBadRequest)
-		return
-	}
-
-	// Get local timezone for midnight calculations
-	loc, err := time.LoadLocation("America/Phoenix")
-	if err != nil {
-		loc = time.Local
-	}
-
-	// Calculate start and end times (midnight to midnight in local time)
-	startOfRange := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, loc)
-	endOfRange := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 0, loc).Add(time.Second)
-
-	startUnix := startOfRange.Unix()
-	endUnix := endOfRange.Unix()
-
-	// Parse columns parameter (default to all columns if not specified)
-	requestedColumns := []string{
-		"dateTime", "outTemp", "dewpoint", "outHumidity", "barometer",
-		"heatindex", "windchill", "windSpeed", "windGust", "windDir",
-		"rainRate", "rain", "lightning_strike_count", "lightning_distance",
-		"inTemp", "inHumidity",
-	}
-
-	if columnsParam != "" {
-		requestedColumns = strings.Split(columnsParam, ",")
-		// Validate that dateTime is always first
-		if len(requestedColumns) == 0 || requestedColumns[0] != "dateTime" {
-			http.Error(w, "Timestamp (dateTime) must be the first column", http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Build SQL query dynamically
-	selectClause := strings.Join(requestedColumns, ", ")
-	query := fmt.Sprintf("SELECT %s FROM archive WHERE dateTime >= ? AND dateTime < ? ORDER BY dateTime ASC", selectClause)
-
-	rows, err := db.Query(query, startUnix, endUnix)
-	if err != nil {
-		log.Println("CSV range query error:", err)
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	// Set headers for CSV download
-	w.Header().Set("Content-Type", "text/csv")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"weather_%s_to_%s.csv\"", startDateStr, endDateStr))
-
-	// Column labels mapping
-	columnLabels := map[string]string{
-		"dateTime":               "Timestamp",
-		"outTemp":                "Temperature_F",
-		"dewpoint":               "Dewpoint_F",
-		"outHumidity":            "Humidity_Pct",
-		"barometer":              "Barometer_inHg",
-		"heatindex":              "HeatIndex_F",
-		"windchill":              "WindChill_F",
-		"windSpeed":              "WindSpeed_mph",
-		"windGust":               "WindGust_mph",
-		"windDir":                "WindDirection_deg",
-		"rainRate":               "RainRate_in_hr",
-		"rain":                   "Rain_in",
-		"lightning_strike_count": "LightningStrikes",
-		"lightning_distance":     "LightningDistance_mi",
-		"inTemp":                 "InsideTemp_F",
-		"inHumidity":             "InsideHumidity_Pct",
-	}
-
-	// Write CSV header
-	headerParts := make([]string, len(requestedColumns))
-	for i, col := range requestedColumns {
-		if label, ok := columnLabels[col]; ok {
-			headerParts[i] = label
-		} else {
-			headerParts[i] = col
-		}
-	}
-	fmt.Fprintf(w, "%s\n", strings.Join(headerParts, ","))
-
-	// Helper to format nullable float
-	formatFloat := func(nf sql.NullFloat64) string {
-		if nf.Valid {
-			return fmt.Sprintf("%.2f", nf.Float64)
-		}
-		return ""
-	}
-
-	formatInt := func(ni sql.NullInt64) string {
-		if ni.Valid {
-			return fmt.Sprintf("%d", ni.Int64)
-		}
-		return ""
-	}
-
-	// Write data rows
-	rowCount := 0
-	for rows.Next() {
-		// Prepare scan destinations based on requested columns
-		scanDest := make([]interface{}, len(requestedColumns))
-		values := make([]string, len(requestedColumns))
-
-		for i, col := range requestedColumns {
-			switch col {
-			case "dateTime":
-				var epochSec int64
-				scanDest[i] = &epochSec
-			case "lightning_strike_count":
-				var val sql.NullInt64
-				scanDest[i] = &val
-			default:
-				var val sql.NullFloat64
-				scanDest[i] = &val
-			}
-		}
-
-		if err := rows.Scan(scanDest...); err != nil {
-			log.Println("CSV scan error:", err)
-			continue
-		}
-
-		// Format values for CSV output
-		for i, col := range requestedColumns {
-			switch col {
-			case "dateTime":
-				epochSec := *scanDest[i].(*int64)
-				ts := time.Unix(epochSec, 0).In(loc)
-				values[i] = ts.Format("2006-01-02 15:04:05")
-			case "lightning_strike_count":
-				values[i] = formatInt(*scanDest[i].(*sql.NullInt64))
-			default:
-				values[i] = formatFloat(*scanDest[i].(*sql.NullFloat64))
-			}
-		}
-
-		fmt.Fprintf(w, "%s\n", strings.Join(values, ","))
-		rowCount++
-	}
-
-	if err := rows.Err(); err != nil {
-		log.Println("CSV rows error:", err)
-	}
-
-	log.Printf("[CSV] Generated range CSV from %s to %s: %d rows, %d columns\n", startDateStr, endDateStr, rowCount, len(requestedColumns))
 }

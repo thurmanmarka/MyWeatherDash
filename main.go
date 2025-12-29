@@ -13,7 +13,6 @@ import (
 
 var (
 	tmplIndex *template.Template
-	tmplKiosk *template.Template
 	db        *sql.DB
 )
 
@@ -29,12 +28,6 @@ func main() {
 	tmplIndex, err = template.ParseFiles("templates/index.html")
 	if err != nil {
 		log.Fatal("Error loading template:", err)
-	}
-
-	// Load kiosk template
-	tmplKiosk, err = template.ParseFiles("templates/kiosk.html")
-	if err != nil {
-		log.Fatal("Error loading kiosk template:", err)
 	}
 
 	// Build DSN from config
@@ -54,9 +47,7 @@ func main() {
 	fs := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
-	http.HandleFunc("/", handleWeatherDash)
-	http.HandleFunc("/weather", handleWeatherDash)
-	http.HandleFunc("/kiosk", handleKiosk)
+	http.HandleFunc("/", handleHome)
 	http.HandleFunc("/health", handleHealth)
 	http.HandleFunc("/api/ping", handlePing)
 	http.HandleFunc("/api/weather", handleWeather)
@@ -72,8 +63,6 @@ func main() {
 	http.HandleFunc("/api/noaa/monthly", handleNOAAMonthly)
 	http.HandleFunc("/api/noaa/yearly", handleNOAAYearly)
 	http.HandleFunc("/api/statistics", handleStatistics)
-	http.HandleFunc("/api/csv/daily", handleCSVDaily)
-	http.HandleFunc("/api/csv/range", handleCSVRange)
 	// Server-Sent Events stream (push updates)
 	broker := NewSSEBroker(db)
 	stopSSE := make(chan struct{})

@@ -1,16 +1,3 @@
-// Format ISO timestamp to 24-hour HH:MM
-function formatTime24FromISO(timeStr) {
-    if (!timeStr) return '--';
-    // If already a short 24h string provided by backend (e.g. "07:08"), return it
-    if (typeof timeStr === 'string' && /^\d{1,2}:\d{2}$/.test(timeStr)) {
-        // Ensure zero-padded hour
-        const parts = timeStr.split(':');
-        return parts[0].padStart(2, '0') + ':' + parts[1];
-    }
-    const d = new Date(timeStr);
-    if (isNaN(d.getTime())) return '--';
-    return (d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0'));
-}
 // --- Statistics Panel: Rain & Lightning Totals ---
 (function(){
     async function fetchJSON(url) {
@@ -47,7 +34,7 @@ function formatTime24FromISO(timeStr) {
                 if (el('stats-temp-lo-range')) el('stats-temp-lo-range').textContent = loRange || '--';
             }
             
-            // Feels Like - split high/low
+            // Feels Like (Heat Index) - split high/low
             if (el('stats-feels-hi-today')) {
                 const [hiToday, loToday] = stats.feelsToday.split(' / ');
                 el('stats-feels-hi-today').textContent = hiToday || '--';
@@ -58,6 +45,10 @@ function formatTime24FromISO(timeStr) {
                 el('stats-feels-hi-range').textContent = hiRange || '--';
                 if (el('stats-feels-lo-range')) el('stats-feels-lo-range').textContent = loRange || '--';
             }
+            
+            // Windchill
+            if (el('stats-windchill-today')) el('stats-windchill-today').textContent = stats.windchillToday;
+            if (el('stats-windchill-range')) el('stats-windchill-range').textContent = stats.windchillRange;
             
             // Dewpoint - split high/low
             if (el('stats-dew-hi-today')) {
@@ -153,6 +144,7 @@ function formatTime24FromISO(timeStr) {
                 'stats-strike-unit': '',
                 'stats-temp-unit': '°F',
                 'stats-feels-unit': '°F',
+                'stats-windchill-unit': '°F',
                 'stats-dew-unit': '°F',
                 'stats-humidity-unit': '%',
                 'stats-barometer-unit': 'inHg',
@@ -232,8 +224,7 @@ async function loadWeather() {
         const res = await fetch('/api/weather?range=' + encodeURIComponent(currentRange));
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
-        let data = await res.json();
-        if (data === null) data = [];
+        const data = await res.json();
         if (!Array.isArray(data) || data.length === 0) {
             statusEl.textContent = 'No weather data for selected range.';
             latestWeather = null;
@@ -301,8 +292,9 @@ function renderWeatherChart(labels, temps, dews, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
             scales: {
@@ -388,8 +380,9 @@ function renderBarometerChart(labels, pressures, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
             scales: {
@@ -487,8 +480,9 @@ function renderFeelsLikeChart(labels, heatVals, chillVals, activeSource, times) 
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
             scales: {
@@ -568,8 +562,9 @@ function renderHumidityChart(labels, hums, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
             scales: {
@@ -700,8 +695,9 @@ function renderWindChart(labels, speeds, gusts, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
             scales: {
@@ -791,8 +787,9 @@ function renderWindVectorChart(speeds, dirs, times) {
                     }
                 },
                 dayNightBackground: {
-                    enabled: true,
-                    times: avgTimes.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: avgTimes.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 },
                 windVector: {
                     speeds: avgVectors.map(v => v ? v.speed : null),
@@ -896,8 +893,9 @@ function renderWindDirectionChart(labels, dirs, speeds, times) {
                     }
                 },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             }
         }
@@ -1009,8 +1007,9 @@ function renderRainAmountChart(labels, amounts, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: true },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
             scales: {
@@ -1073,8 +1072,9 @@ function renderRainRateChart(labels, rates, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: true },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
                 scales: {
@@ -1130,20 +1130,10 @@ async function loadLightning() {
             const latestReading = data[data.length - 1];
             lightningRecentlyActive = latestReading?.recentlyActive || false;
 
-            // Track latest distance from most recent strike with distance data
-            lightningDistance = null;
-            for (let i = data.length - 1; i >= 0; i--) {
-                if (data[i].distance != null) {
-                    lightningDistance = data[i].distance;
-                    break;
-                }
-            }
-
             lightningToday = totalToday;
-            console.log('[Lightning] Today total:', totalToday.toFixed(0), 'strikes | Recently active (10 min):', lightningRecentlyActive, '| Last distance:', lightningDistance ? lightningDistance.toFixed(1) + ' mi' : 'N/A');
+            console.log('[Lightning] Today total:', totalToday.toFixed(0), 'strikes | Recently active (10 min):', lightningRecentlyActive);
         } else {
             lightningToday = null;
-            lightningDistance = null;
             lightningRecentlyActive = false;
             console.log('[Lightning] No lightning data');
         }
@@ -1240,6 +1230,16 @@ function renderLightningChart(labels, values, range, times) {
         yMax = Math.ceil(maxValRaw / 5) * 5;
     }
 
+    // Build a proper time grid for day/night shading
+    let shadingTimesMs;
+
+    if (range === 'day') {
+        // For day range we expect 'times' to be hour starts (length 24). Use them directly.
+        shadingTimesMs = times.map(t => t.getTime());
+    } else {
+            shadingTimesMs = times.map(t => t.getTime());
+    }
+
     lightningChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1254,8 +1254,8 @@ function renderLightningChart(labels, values, range, times) {
                     backgroundColor: ctx => {
                         const v = ctx.raw ?? ctx.parsed.y;
                         if (v == null || isNaN(v)) return 'rgba(0,0,0,0)';
-                        if (v === 0) return 'rgba(148, 163, 184, 0.2)';
-                        return 'rgba(251, 191, 36, 0.85)';
+                        if (v === 0) return 'rgba(148, 163, 184, 0.2)';  // very light grey for 0
+                        return 'rgba(251, 191, 36, 0.85)';                 // yellow/amber for strikes
                     },
                     borderRadius: 3,
                     barPercentage: range === 'day' ? 0.9 : 0.6,
@@ -1269,41 +1269,49 @@ function renderLightningChart(labels, values, range, times) {
             plugins: {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: {
-                    enabled: true,
-                    callbacks: {
-                        label(ctx) {
-                            const v = ctx.parsed.y;
-                            return `Strikes: ${v}`;
+                        enabled: true,
+                        callbacks: {
+                            label(ctx) {
+                                const v = ctx.parsed.y;
+                                return `Strikes: ${v}`;
+                            }
                         }
+                    },
+                    dayNightBackground: {
+                        enabled: range === 'day',
+                        times: shadingTimesMs,
+                        fillStyle: 'rgba(148, 163, 184, 0.16)'
                     }
                 },
-                dayNightBackground: {
-                    enabled: range === 'day',
-                    times: times.map(t => t.getTime())
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: yMax,
-                    title: {
-                        display: true,
-                        text: range === 'day'
-                            ? 'Strikes per Hour'
-                            : 'Strikes per Day'
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: yMax,
+                        title: {
+                            display: true,
+                            text: range === 'day'
+                                ? 'Strikes per Hour'
+                                : 'Strikes per Day'
+                        },
+                        ticks: {
+                            maxTicksLimit: 6,
+                            precision: 0
+                        },
+                        grid: { color: 'rgba(148, 163, 184, 0.25)' }
                     },
-                    ticks: { maxTicksLimit: 6, precision: 0 },
-                    grid: { color: 'rgba(148, 163, 184, 0.25)' }
-                },
-                x: {
+                    x: {
                     type: 'category',
-                    ticks: { maxTicksLimit: range === 'day' ? 8 : 7 },
+                    ticks: {
+                        maxTicksLimit: range === 'day' ? 8 : 7
+                    },
                     grid: { display: false }
                 }
             }
         }
     });
-}// ---------------------------------------------------------------------
+}
+
+// ---------------------------------------------------------------------
 // Inside Temperature (aligned to master timeline)
 // ---------------------------------------------------------------------
 async function loadInsideTemp() {
@@ -1363,8 +1371,9 @@ function renderInsideTempChart(labels, temps, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
             scales: {
@@ -1444,8 +1453,9 @@ function renderInsideHumidityChart(labels, inHums, times) {
                 legend: { display: true, labels: { usePointStyle: true } },
                 tooltip: { enabled: true, displayColors: false },
                 dayNightBackground: {
-                    enabled: true,
-                    times: times.map(t => t.getTime())
+                    enabled: currentRange === 'day',
+                    times: times.map(t => t.getTime()),
+                    fillStyle: 'rgba(148, 163, 184, 0.16)'
                 }
             },
             scales: {

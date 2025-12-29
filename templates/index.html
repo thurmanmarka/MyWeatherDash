@@ -13,25 +13,6 @@
             --accent-soft: #e0edff;
             --text-main: #1f2933;
             --text-muted: #6b7280;
-            --gradient-start: #d9e6ff;
-            --gradient-mid1: #e7edf4;
-            --gradient-mid2: #dde7f4;
-            --gradient-end: #d3e0f0;
-        }
-
-        [data-theme="dark"] {
-            --bg: #0f172a;
-            --page-bg: #1e293b;
-            --panel-bg: #334155;
-            --panel-border: #475569;
-            --accent: #3b82f6;
-            --accent-soft: #1e3a8a;
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
-            --gradient-start: #1e293b;
-            --gradient-mid1: #0f172a;
-            --gradient-mid2: #1e293b;
-            --gradient-end: #334155;
         }
 
         * {
@@ -42,9 +23,8 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             padding: 20px;
             margin: 0;
-            background: radial-gradient(circle at top left, var(--gradient-start), var(--gradient-mid1) 40%, var(--gradient-mid2) 70%, var(--gradient-end) 100%);
+            background: radial-gradient(circle at top left, #d9e6ff, #e7edf4 40%, #dde7f4 70%, #d3e0f0 100%);
             color: var(--text-main);
-            transition: background 0.3s ease, color 0.3s ease;
         }
 
         .page-shell {
@@ -91,10 +71,9 @@
             align-items: center;
             gap: 6px;
             padding: 3px;
-            background: var(--panel-bg);
+            background: rgba(255, 255, 255, 0.8);
             border-radius: 999px;
-            border: 1px solid var(--panel-border);
-            transition: background 0.3s ease, border-color 0.3s ease;
+            border: 1px solid rgba(148, 163, 184, 0.4);
         }
 
         .range-label {
@@ -115,22 +94,21 @@
         }
 
         .range-button:hover {
-            background: var(--accent-soft);
+            background: rgba(148, 163, 184, 0.12);
         }
 
         .range-button.active {
             background: var(--accent);
             color: #ffffff;
-            box-shadow: 0 0 0 1px var(--accent);
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
         }
 
-        #reloadBtn,
-        #themeToggle {
+        #reloadBtn {
             padding: 6px 12px;
             font-size: 0.8rem;
             border-radius: 999px;
             border: 1px solid rgba(148, 163, 184, 0.7);
-            background: var(--panel-bg);
+            background: #ffffff;
             cursor: pointer;
             color: var(--text-main);
             display: inline-flex;
@@ -139,14 +117,12 @@
             transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
         }
 
-        #reloadBtn:hover,
-        #themeToggle:hover {
-            background: var(--accent-soft);
+        #reloadBtn:hover {
+            background: #f3f4ff;
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
         }
 
-        #reloadBtn:active,
-        #themeToggle:active {
+        #reloadBtn:active {
             transform: translateY(1px);
             box-shadow: none;
         }
@@ -156,7 +132,7 @@
             font-size: 0.8rem;
             border-radius: 999px;
             border: 1px solid rgba(148, 163, 184, 0.7);
-            background: var(--panel-bg);
+            background: #ffffff;
             cursor: pointer;
             color: var(--text-main);
             display: inline-flex;
@@ -167,42 +143,11 @@
         }
 
         #noaaBtn:hover {
-            background: var(--accent-soft);
+            background: #f3f4ff;
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
         }
 
         #noaaBtn:active {
-            transform: translateY(1px);
-            box-shadow: none;
-        }
-
-        #easyBtn {
-            padding: 6px 10px;
-            font-size: 0.8rem;
-            border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.7);
-            background: var(--panel-bg);
-            cursor: pointer;
-            color: var(--text-main);
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
-            margin-left: 8px;
-        }
-
-        #easyBtn svg {
-            width: 18px;
-            height: 18px;
-            display: block;
-        }
-
-        #easyBtn:hover {
-            background: var(--accent-soft);
-            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
-        }
-
-        #easyBtn:active {
             transform: translateY(1px);
             box-shadow: none;
         }
@@ -221,20 +166,19 @@
         }
 
         .noaa-modal-content {
-            background-color: var(--panel-bg);
+            background-color: #fefefe;
             margin: 5% auto;
             padding: 0;
-            border: 1px solid var(--panel-border);
+            border: 1px solid #888;
             width: 90%;
             max-width: 900px;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: background-color 0.3s ease, border-color 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .noaa-modal-header {
             padding: 16px 20px;
-            border-bottom: 1px solid var(--panel-border);
+            border-bottom: 1px solid #ddd;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -243,7 +187,6 @@
         .noaa-modal-header h2 {
             margin: 0;
             font-size: 1.25rem;
-            color: var(--text-main);
         }
 
         .noaa-modal-close {
@@ -252,7 +195,7 @@
             font-size: 28px;
             font-weight: bold;
             cursor: pointer;
-            color: var(--text-muted);
+            color: #aaa;
             padding: 0;
             width: 30px;
             height: 30px;
@@ -260,12 +203,12 @@
         }
 
         .noaa-modal-close:hover {
-            color: var(--text-main);
+            color: #000;
         }
 
         .noaa-modal-controls {
             padding: 16px 20px;
-            border-bottom: 1px solid var(--panel-border);
+            border-bottom: 1px solid #ddd;
             display: flex;
             gap: 10px;
             align-items: center;
@@ -275,10 +218,8 @@
         .noaa-modal-controls button {
             padding: 6px 12px;
             border-radius: 4px;
-            border: 1px solid var(--panel-border);
+            border: 1px solid #ccc;
             font-size: 0.9rem;
-            background: var(--page-bg);
-            color: var(--text-main);
         }
 
         .noaa-modal-controls button {
@@ -292,26 +233,6 @@
             opacity: 0.9;
         }
 
-        #easyDownload {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #10b981 !important;
-            color: white !important;
-            font-weight: 600;
-        }
-
-        #easyDownload svg {
-            width: 28px;
-            height: 28px;
-            display: block;
-        }
-
-        #easyDownload:hover {
-            background: #059669 !important;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-        }
-
         .noaa-content {
             padding: 20px;
             font-family: 'Courier New', monospace;
@@ -320,8 +241,7 @@
             overflow-x: auto;
             max-height: 60vh;
             overflow-y: auto;
-            background: var(--page-bg);
-            color: var(--text-main);
+            background: #f9f9f9;
             margin: 0;
         }
 
@@ -489,7 +409,7 @@
         }
 
         .cc-wind-icon.cc-pulse svg {
-            stroke: #38bdf8;   /* sky-blue - same as normal wind icon */
+            stroke: #f59e0b;   /* amber - alert color */
             animation: wind-pulse 0.8s ease-in-out infinite;
         }
 
@@ -562,7 +482,7 @@
         }
 
         .cc-rain-icon.cc-pulse svg {
-            fill: #3b82f6;  /* keep blue when pulsing */
+            fill: #f59e0b;  /* amber alert color */
             animation: cc-pulse 0.8s ease-in-out infinite;
         }
 
@@ -648,18 +568,8 @@
             stroke: #f59e0b;
             animation: cc-pulse 0.8s ease-in-out infinite;
         }
-
-        .cc-feels-icon.cc-pulse-heat svg {
-            stroke: #ef4444;  /* red - extreme heat */
-            animation: cc-pulse 0.8s ease-in-out infinite;
-        }
-
-        .cc-feels-icon.cc-pulse-cold svg {
-            stroke: #06b6d4;  /* cyan - extreme cold */
-            animation: cc-pulse 0.8s ease-in-out infinite;
-        }
         
-        /* Alert color for active/any strikes - amber for most alerts */
+        /* Alert color for active/any strikes */
         .cc-alert {
             color: #fbbf24 !important;  /* amber-400-ish */
             font-weight: 600;
@@ -668,50 +578,6 @@
         .cc-alert .cc-label,
         .cc-alert .cc-value {
             color: #fbbf24 !important;  /* amber-400-ish */
-        }
-
-        /* Rain alerts use blue instead of amber */
-        .cc-alert-rain {
-            color: #3b82f6 !important;  /* blue-500 */
-            font-weight: 600;
-        }
-
-        .cc-alert-rain .cc-label,
-        .cc-alert-rain .cc-value {
-            color: #3b82f6 !important;  /* blue-500 */
-        }
-
-        /* Wind alerts use gray/slate to represent moving air */
-        .cc-alert-wind {
-            color: #38bdf8 !important;  /* sky-blue - matches wind icon */
-            font-weight: 600;
-        }
-
-        .cc-alert-wind .cc-label,
-        .cc-alert-wind .cc-value {
-            color: #38bdf8 !important;  /* sky-blue - matches wind icon */
-        }
-
-        /* Extreme heat alerts use red/orange */
-        .cc-alert-heat {
-            color: #ef4444 !important;  /* red-500 - hot */
-            font-weight: 600;
-        }
-
-        .cc-alert-heat .cc-label,
-        .cc-alert-heat .cc-value {
-            color: #ef4444 !important;  /* red-500 - hot */
-        }
-
-        /* Extreme cold alerts use icy cyan/blue */
-        .cc-alert-cold {
-            color: #06b6d4 !important;  /* cyan-500 - frigid */
-            font-weight: 600;
-        }
-
-        .cc-alert-cold .cc-label,
-        .cc-alert-cold .cc-value {
-            color: #06b6d4 !important;  /* cyan-500 - frigid */
         }
 
         /* Pulse animation for wind alerts */
@@ -769,33 +635,12 @@
         .stats-label, .stats-val { font-size: 0.78rem; }
         .stats-val { font-weight: normal; }
     </style>
-    <link rel="stylesheet" href="/static/css/celestial-highlight.css">
 </head>
 <body>
 <div class="page-shell">
     <div class="page-header">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h1>{{ .LocationName }} Weather</h1>
-                <div class="page-subtitle">Super Dashboard for local weather enthusiasts</div>
-            </div>
-            <a href="/" style="
-                padding: 8px 16px;
-                background: var(--panel-bg);
-                color: var(--text);
-                border: 1px solid var(--border);
-                border-radius: 6px;
-                text-decoration: none;
-                font-size: 0.9rem;
-                transition: all 0.2s;
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-            " onmouseover="this.style.borderColor='var(--accent)'; this.style.color='var(--accent)';" 
-               onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text)';">
-                ← Back to Hub
-            </a>
-        </div>
+        <h1>{{ .LocationName }} Weather</h1>
+        <div class="page-subtitle">Super Dashboard for local weather enthusiasts</div>
     </div>
 
     <div class="controls-row">
@@ -807,31 +652,11 @@
                 <button class="range-button" data-range="month">Month</button>
             </div>
             <button id="noaaBtn">📊 NOAA Reports</button>
-            {{if .IsAdmin}}
-            <button id="easyBtn">
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Button shadow -->
-                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
-                    <!-- Button base -->
-                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
-                    <!-- Top highlight -->
-                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
-                    <!-- Rim -->
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
-                    <!-- Text -->
-                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
-                </svg>
-                Easy Button
-            </button>
-            {{end}}
         </div>
 
         <div style="display: flex; align-items: center; gap: 10px;">
             <span id="status"></span>
-            <button id="themeToggle" title="Toggle dark mode">🌙</button>
-            {{if .IsAdmin}}
             <button id="reloadBtn">⟳ Reload</button>
-            {{end}}
         </div>
     </div>
 
@@ -959,9 +784,6 @@
                     </span>
                     <span class="cc-value" id="cc-lightning-today"></span>
                 </div>
-                <div class="cc-row" id="cc-lightning-distance-row" style="font-size: 0.75rem; color: var(--text-muted); margin-top: -2px;">
-                    <span style="margin-left: 20px;" id="cc-lightning-distance">--</span>
-                </div>
                 <!-- INSIDE -->
                 <div class="sidebar-section-title">Inside</div>
                 <div class="cc-row">
@@ -1002,13 +824,6 @@
                 </div>
                 <div class="cc-row">
                     <span class="cc-label">
-                        <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">☀️</span>
-                        Daylight Hours
-                    </span>
-                    <span class="cc-value" id="cc-daylight-hours">--</span>
-                </div>
-                <div class="cc-row">
-                    <span class="cc-label">
                         <span class="cc-celestial-emoji" id="cc-moon-phase-icon" aria-hidden="true" style="font-size: 1.1em;">🌙</span>
                         Moon Phase
                     </span>
@@ -1021,93 +836,52 @@
                     </span>
                     <span class="cc-value" id="cc-moonrise-moonset">--</span>
                 </div>
-                <div class="cc-row">
+                <div class="cc-row cc-celestial-details" style="display: none;">
                     <span class="cc-label">
-                        <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌠</span>
-                        Twilight
-                    </span>
-                    <span class="cc-value"></span>
-                </div>
-                <!-- Astronomical Twilight AM -->
-                <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
-                        <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌌</span>
-                        Astronomical
-                    </span>
-                    <span class="cc-value" id="cc-astronomical-twilight-am">--</span>
-                </div>
-                <!-- Nautical Twilight AM -->
-                <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
-                        <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌃</span>
-                        Nautical
-                    </span>
-                    <span class="cc-value" id="cc-nautical-twilight-am">--</span>
-                </div>
-                <!-- Civil Twilight AM -->
-                <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌆</span>
-                        Civil
+                        Civil Twilight
                     </span>
-                    <span class="cc-value" id="cc-civil-twilight-am">--</span>
+                    <span class="cc-value" id="cc-civil-twilight">--</span>
                 </div>
-                <!-- Civil Twilight PM -->
                 <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
-                        <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌆</span>
-                        Civil
-                    </span>
-                    <span class="cc-value" id="cc-civil-twilight-pm">--</span>
-                </div>
-                <!-- Nautical Twilight PM -->
-                <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
+                    <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌃</span>
-                        Nautical
+                        Nautical Twilight
                     </span>
-                    <span class="cc-value" id="cc-nautical-twilight-pm">--</span>
+                    <span class="cc-value" id="cc-nautical-twilight">--</span>
                 </div>
-                <!-- Astronomical Twilight PM -->
                 <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
-                        <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌌</span>
-                        Astronomical
-                    </span>
-                    <span class="cc-value" id="cc-astronomical-twilight-pm">--</span>
-                </div>
-                <div class="cc-row">
                     <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">✨</span>
-                        Magic Hours
+                        Astronomical Twilight
                     </span>
-                    <span class="cc-value"></span>
+                    <span class="cc-value" id="cc-astronomical-twilight">--</span>
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
+                    <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">💙</span>
-                        Blue Hour
+                        Blue (AM)
                     </span>
                     <span class="cc-value" id="cc-blue-hour-morning">--</span>
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
+                    <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌄</span>
-                        Golden Hour
+                        Golden (AM)
                     </span>
                     <span class="cc-value" id="cc-golden-hour-morning">--</span>
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
+                    <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">🌇</span>
-                        Golden Hour
+                        Golden (PM)
                     </span>
                     <span class="cc-value" id="cc-golden-hour-evening">--</span>
                 </div>
                 <div class="cc-row cc-celestial-details" style="display: none;">
-                    <span class="cc-label" style="padding-left: 1.5em;">
+                    <span class="cc-label">
                         <span class="cc-celestial-emoji" aria-hidden="true" style="font-size: 1.1em;">💙</span>
-                        Blue Hour
+                        Blue (PM)
                     </span>
                     <span class="cc-value" id="cc-blue-hour-evening">--</span>
                 </div>
@@ -1142,7 +916,7 @@
                     <div class="stats-val" id="stats-temp-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
                     <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°F</div>
 
-                    <div class="stats-label">Feels Like</div>
+                    <div class="stats-label">Heat Index</div>
                     <div class="stats-val" id="stats-feels-hi-today">--</div>
                     <div class="stats-val" id="stats-feels-hi-range">--</div>
                     <div class="stats-unit" id="stats-feels-unit">°F</div>
@@ -1151,6 +925,11 @@
                     <div class="stats-val" id="stats-feels-lo-today" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
                     <div class="stats-val" id="stats-feels-lo-range" style="font-size: 0.72rem; color: var(--text-muted);">--</div>
                     <div class="stats-unit" style="font-size: 0.72rem; color: var(--text-muted);">°F</div>
+
+                    <div class="stats-label">Wind Chill (Low)</div>
+                    <div class="stats-val" id="stats-windchill-today">--</div>
+                    <div class="stats-val" id="stats-windchill-range">--</div>
+                    <div class="stats-unit" id="stats-windchill-unit">°F</div>
 
                     <div class="stats-label">Dew Point</div>
                     <div class="stats-val" id="stats-dew-hi-today">--</div>
@@ -1388,129 +1167,11 @@
             </select>
             <button id="noaaLoad">Load</button>
             <button id="noaaDownload">Download</button>
-            {{if .IsAdmin}}
             <button id="noaaRecompile" style="background: #f59e0b; margin-left: 10px;">🔄 Force Recompile</button>
-            {{end}}
         </div>
         <pre id="noaaContent" class="noaa-content">Select options and click Load</pre>
     </div>
 </div>
-
-{{if .IsAdmin}}
-<!-- Easy Button Modal -->
-<div id="easyModal" class="noaa-modal">
-    <div class="noaa-modal-content">
-        <div class="noaa-modal-header">
-            <h2>
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 8px;">
-                    <!-- Button shadow -->
-                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
-                    <!-- Button base -->
-                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
-                    <!-- Top highlight -->
-                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
-                    <!-- Rim -->
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
-                    <!-- Text -->
-                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
-                </svg>
-                Easy Button - Chose Your Own Data!
-            </h2>
-            <button class="noaa-modal-close" id="easyModalClose">&times;</button>
-        </div>
-        <div class="noaa-modal-controls">
-            <label for="easyStartYear" style="font-size: 0.85rem; color: var(--text-muted);">Start Date:</label>
-            <select id="easyStartYear" name="easyStartYear"></select>
-            <select id="easyStartMonth" name="easyStartMonth">
-                <option value="1">January</option>
-                <option value="2">February</option>
-                <option value="3">March</option>
-                <option value="4">April</option>
-                <option value="5">May</option>
-                <option value="6">June</option>
-                <option value="7">July</option>
-                <option value="8">August</option>
-                <option value="9">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-            </select>
-            <select id="easyStartDay" name="easyStartDay"></select>
-        </div>
-        
-        <div class="noaa-modal-controls" style="margin-top: 10px;">
-            <label for="easyEndYear" style="font-size: 0.85rem; color: var(--text-muted);">End Date:</label>
-            <select id="easyEndYear" name="easyEndYear"></select>
-            <select id="easyEndMonth" name="easyEndMonth">
-                <option value="1">January</option>
-                <option value="2">February</option>
-                <option value="3">March</option>
-                <option value="4">April</option>
-                <option value="5">May</option>
-                <option value="6">June</option>
-                <option value="7">July</option>
-                <option value="8">August</option>
-                <option value="9">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-            </select>
-            <select id="easyEndDay" name="easyEndDay"></select>
-        </div>
-        
-        <!-- Column Selection Section -->
-        <div style="padding: 20px; border-bottom: 1px solid var(--panel-border);">
-            <h3 style="margin: 0 0 12px 0; font-size: 0.95rem; color: var(--text-main);">Customize CSV Columns</h3>
-            <p style="margin: 0 0 12px 0; font-size: 0.8rem; color: var(--text-muted);">Select which data columns to include in your CSV export:</p>
-            
-            <div id="easyColumnContainer" style="display: flex; flex-direction: column; gap: 8px;">
-                <!-- Timestamp (always included, not removable) -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 0.85rem; color: var(--text-muted); min-width: 80px;">Column 1:</span>
-                    <select disabled name="csv-timestamp" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--page-bg); color: var(--text-muted); cursor: not-allowed;">
-                        <option>Timestamp (required)</option>
-                    </select>
-                </div>
-                
-                <!-- Dynamic columns will be added here -->
-            </div>
-            
-            <div style="margin-top: 12px; display: flex; gap: 8px;">
-                <button id="easyAddColumn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--accent); color: white; cursor: pointer; font-size: 0.8rem;">
-                    ➕ Add Column
-                </button>
-                <button id="easyRemoveColumn" style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--panel-border); background: #ef4444; color: white; cursor: pointer; font-size: 0.8rem;">
-                    ➖ Remove Column
-                </button>
-            </div>
-        </div>
-        
-        <div style="padding: 20px; font-size: 0.85rem; color: var(--text-muted); text-align: center;">
-            <p style="margin: 0;">Select a date and click Download CSV to get all weather statistics for that day.</p>
-            <p style="margin: 8px 0 0 0; font-size: 0.75rem;">Includes: temperature, humidity, pressure, wind, rain, lightning, and more.</p>
-        </div>
-        
-        <!-- Download Button at Bottom -->
-        <div style="padding: 20px; text-align: center; border-top: 1px solid var(--panel-border);">
-            <button id="easyDownload" style="padding: 10px 20px; font-size: 1rem;">
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Button shadow -->
-                    <circle cx="100" cy="108" r="70" fill="#b30000"/>
-                    <!-- Button base -->
-                    <circle cx="100" cy="100" r="70" fill="#ff3333"/>
-                    <!-- Top highlight -->
-                    <ellipse cx="100" cy="80" rx="55" ry="35" fill="#ff6666" opacity="0.9"/>
-                    <!-- Rim -->
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#800000" stroke-width="6"/>
-                    <!-- Text -->
-                    <text x="100" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#ffffff">EASY</text>
-                </svg>
-                Download as CSV
-            </button>
-        </div>
-    </div>
-</div>
-{{end}}
 
 <!-- Injected app config from server -->
 <script>
@@ -1518,96 +1179,10 @@
      /* Emit the configured client poll interval in milliseconds.
          A value of 0 disables client-side periodic polling. */
      window.APP_CONFIG.clientPollMs = {{ .ClientPollMs }};
-     
-     // Alert thresholds from server config
-     window.APP_CONFIG.extremeHeat = {{ .ExtremeHeat }};
-     window.APP_CONFIG.extremeCold = {{ .ExtremeCold }};
-     
-     // Dark mode toggle functionality
-     (function() {
-         const html = document.documentElement;
-         const themeToggle = document.getElementById('themeToggle');
-         let autoThemeEnabled = localStorage.getItem('autoTheme') !== 'false'; // Default to enabled
-         
-         // Check if we should auto-switch based on celestial data
-         function checkAutoTheme() {
-             if (!autoThemeEnabled) return;
-             
-             if (window.celestialData && window.celestialData.sunrise && window.celestialData.sunset) {
-                 const now = new Date();
-                 const sunrise = new Date(window.celestialData.sunrise);
-                 const sunset = new Date(window.celestialData.sunset);
-                 
-                 // Auto-switch to dark mode after sunset or before sunrise
-                 const shouldBeDark = now < sunrise || now > sunset;
-                 const autoTheme = shouldBeDark ? 'dark' : 'light';
-                 
-                 // Only auto-switch if user hasn't manually overridden recently
-                 const manualOverride = localStorage.getItem('manualThemeOverride');
-                 const overrideTime = manualOverride ? parseInt(localStorage.getItem('manualThemeOverrideTime') || '0') : 0;
-                 const timeSinceOverride = Date.now() - overrideTime;
-                 
-                 // Clear manual override after 1 hour or at next sunrise/sunset transition
-                 if (manualOverride && timeSinceOverride > 3600000) {
-                     localStorage.removeItem('manualThemeOverride');
-                     localStorage.removeItem('manualThemeOverrideTime');
-                 }
-                 
-                 if (!manualOverride) {
-                     setTheme(autoTheme, false);
-                 }
-             }
-         }
-         
-         // Set theme with optional manual flag
-         function setTheme(theme, isManual = false) {
-             html.setAttribute('data-theme', theme);
-             localStorage.setItem('theme', theme);
-             updateThemeIcon(theme);
-             
-             // Update chart text colors for the new theme
-             if (typeof window.updateChartColors === 'function') {
-                 window.updateChartColors();
-             }
-             
-             // Refresh charts to update day/night shading colors and text
-             if (typeof window.refreshAllCharts === 'function') {
-                 window.refreshAllCharts();
-             }
-             
-             if (isManual) {
-                 localStorage.setItem('manualThemeOverride', theme);
-                 localStorage.setItem('manualThemeOverrideTime', Date.now().toString());
-             }
-         }
-         
-         // Load saved theme preference or default to light
-         const savedTheme = localStorage.getItem('theme') || 'light';
-         setTheme(savedTheme, false);
-         
-         // Check auto theme on load and periodically
-         checkAutoTheme();
-         setInterval(checkAutoTheme, 60000); // Check every minute
-         
-         // Toggle theme on button click (manual override)
-         themeToggle.addEventListener('click', function() {
-             const currentTheme = html.getAttribute('data-theme');
-             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-             setTheme(newTheme, true);
-         });
-         
-         function updateThemeIcon(theme) {
-             themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
-             themeToggle.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
-         }
-     })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/static/js/core.js?v={{ .AssetVersion }}"></script>
 <script src="/static/js/charts.js?v={{ .AssetVersion }}"></script>
 <script src="/static/js/noaa.js?v={{ .AssetVersion }}"></script>
-{{if .IsAdmin}}
-<script src="/static/js/easy.js?v={{ .AssetVersion }}"></script>
-{{end}}
 </body>
 </html>

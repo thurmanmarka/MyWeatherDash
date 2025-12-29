@@ -3,7 +3,7 @@
 *.dll
 *.so
 *.dylib
-myweatherdash
+weatherdash*
 
 # Go build directories
 bin/
@@ -18,9 +18,6 @@ config.yaml
 
 # Generated files
 *.txt
-
-# Backup files
-*.backup
 
 # OS files
 .DS_Store
