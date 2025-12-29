@@ -14,6 +14,23 @@ let lightningChart = null;
 let insideTempChart = null;
 let insideHumidityChart = null;
 
+// Function to refresh all charts (useful when theme changes)
+function refreshAllCharts() {
+    const charts = [
+        weatherChart, barometerChart, feelsLikeChart, humidityChart,
+        windChart, windDirChart, windVectorChart, rainAmountChart,
+        rainRateChart, lightningChart, insideTempChart, insideHumidityChart
+    ];
+    charts.forEach(chart => {
+        if (chart) {
+            chart.update('none'); // 'none' = no animation
+        }
+    });
+}
+
+// Make refreshAllCharts available globally for theme toggle
+window.refreshAllCharts = refreshAllCharts;
+
 // Celestial data cache (from /api/celestial)
 let celestialData = null;
 
@@ -31,15 +48,16 @@ let latestWind = null;
 let latestRainRate = null;
 let latestRainToday = null;
 let lightningToday = null;
+let lightningDistance = null;  // Latest lightning strike distance in miles
 
 // Active Alerts
 let rainRecentlyActive = false;
 let lightningRecentlyActive = false;
 let windStrong = false;
 
-// Feels-like alert thresholds
-const FEELS_EXTREME_HEAT = 95; // °F heat index threshold for alerting
-const FEELS_EXTREME_COLD = 32; // °F wind chill threshold for alerting
+// Alert thresholds (from server config)
+const FEELS_EXTREME_HEAT = window.APP_CONFIG?.extremeHeat || 95; // °F heat index threshold
+const FEELS_EXTREME_COLD = window.APP_CONFIG?.extremeCold || 32; // °F wind chill threshold
 
 // Day / Week / Month selector
 let currentRange = 'day';
@@ -220,10 +238,17 @@ function makeTimeTickOptions(times) {
 // ---------------------------------------------------------------------
 // Global Chart.js defaults
 // ---------------------------------------------------------------------
+function updateChartColors() {
+    if (!window.Chart || !Chart.defaults) return;
+    
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    Chart.defaults.color = isDarkMode ? '#e5e7eb' : '#4b5563';  // Light text in dark mode, dark text in light mode
+}
+
 if (window.Chart && Chart.defaults) {
     Chart.defaults.font.family = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     Chart.defaults.font.size = 11;
-    Chart.defaults.color = '#4b5563';
+    updateChartColors();  // Set initial colors based on theme
     Chart.defaults.elements.line.borderWidth = 2;
     Chart.defaults.elements.line.tension = 0.25;
     Chart.defaults.elements.point.radius = 0;
@@ -233,6 +258,8 @@ if (window.Chart && Chart.defaults) {
     Chart.defaults.aspectRatio = 1.6;
 }
 
+// Make updateChartColors available globally for theme toggle
+window.updateChartColors = updateChartColors;
 
 
 // ---------------------------------------------------------------------
@@ -360,37 +387,69 @@ const dayNightBackgroundPlugin = {
         const timesMs = pluginOptions.times;
         if (!timesMs || timesMs.length < 2) return;
 
-        const fillStyle = pluginOptions.fillStyle || 'rgba(148, 163, 184, 0.16)';
+        // Detect current theme and use appropriate shading
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+        const fillStyle = isDarkMode 
+            ? 'rgba(0, 0, 0, 0.3)'  // Darker overlay for dark mode
+            : 'rgba(148, 163, 184, 0.16)';  // Light gray for light mode
 
         const top    = chartArea.top;
         const height = chartArea.bottom - chartArea.top;
 
-        // Use celestial data if available, otherwise fall back to computed times
-        const getSunTimesFor = (tsMs) => {
-            if (celestialData && celestialData.sunrise && celestialData.sunset) {
-                return {
-                    sunrise: new Date(celestialData.sunrise),
-                    sunset: new Date(celestialData.sunset)
-                };
-            }
-            // Fallback: simple 6am/6pm estimate
-            const d = new Date(tsMs);
-            return {
-                sunrise: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 6, 0, 0),
-                sunset: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 18, 0, 0)
-            };
-        };
+        // Use celestial data for sunrise/sunset times
+        let sunriseTime, sunsetTime;
+        if (celestialData && celestialData.sunrise && celestialData.sunset) {
+            sunriseTime = new Date(celestialData.sunrise);
+            sunsetTime = new Date(celestialData.sunset);
+        } else {
+            // Fallback: 6am sunrise, 6pm sunset
+            const now = new Date();
+            sunriseTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0);
+            sunsetTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0, 0);
+        }
 
         ctx.save();
         ctx.fillStyle = fillStyle;
 
-        for (let i = 0; i < timesMs.length - 1; i++) {
-            const tMid = (timesMs[i] + timesMs[i + 1]) / 2;
-            const { sunrise, sunset } = getSunTimesFor(tMid);
+        // Get the chart's dataset to know how many data points we have
+        let datasetLength = 0;
+        
+        // For regular charts, use data.labels
+        if (chart.data.labels && chart.data.labels.length > 0) {
+            datasetLength = chart.data.labels.length;
+        }
+        // For scatter plots with category x-axis, check the scale configuration
+        else if (chart.config.type === 'scatter' && xScale.type === 'category') {
+            // Category scale stores labels in the scale itself after initialization
+            const scaleLabels = xScale.getLabels ? xScale.getLabels() : [];
+            datasetLength = scaleLabels.length;
+        }
+        
+        if (datasetLength === 0) {
+            ctx.restore();
+            return;
+        }
 
-            const isNight = tMid < sunrise.getTime() || tMid >= sunset.getTime();
+        for (let i = 0; i < datasetLength - 1; i++) {
+            // Use the provided times array to check if this period is night
+            if (i >= timesMs.length - 1) break;
+            
+            const tMid = (timesMs[i] + timesMs[i + 1]) / 2;
+            const currentDate = new Date(tMid);
+            
+            // Get hour of day for comparison
+            const hour = currentDate.getHours();
+            const minute = currentDate.getMinutes();
+            const timeInMinutes = hour * 60 + minute;
+            
+            const sunriseMinutes = sunriseTime.getHours() * 60 + sunriseTime.getMinutes();
+            const sunsetMinutes = sunsetTime.getHours() * 60 + sunsetTime.getMinutes();
+            
+            // Check if this time is before sunrise or after sunset
+            const isNight = timeInMinutes < sunriseMinutes || timeInMinutes >= sunsetMinutes;
             if (!isNight) continue;
 
+            // Use data indices for pixel calculation
             const xStart = xScale.getPixelForValue(i);
             const xEnd   = xScale.getPixelForValue(i + 1);
 
@@ -441,6 +500,7 @@ function updateCurrentConditions() {
     const lightningTodayEl  = document.getElementById('cc-lightning-today');
     const lightningRowEl    = document.getElementById('cc-lightning-row');
     const lightningIconEl   = document.getElementById('cc-lightning-icon');
+    const lightningDistEl   = document.getElementById('cc-lightning-distance');
     // Inside
     const inTempEl          = document.getElementById('cc-in-temp');
     const inHumEl           = document.getElementById('cc-in-hum');
@@ -505,10 +565,10 @@ function updateCurrentConditions() {
         if (feelsIconEl) {
             let svg = '';
             if (sourceKey === 'heat') {
-                // Sun / heat icon
-                svg = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3.25" stroke="#f59e0b" stroke-width="1.5" fill="none"/><path stroke="#f59e0b" stroke-width="1.5" d="M12 2v1.5M12 20.5V22M4.22 4.22l1.06 1.06M18.72 18.72l1.06 1.06M1 12h1.5M21.5 12H23M4.22 19.78l1.06-1.06M18.72 5.28l1.06-1.06"/></svg>';
+                // Sun / heat icon - red for hot
+                svg = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3.25" stroke="#ef4444" stroke-width="1.5" fill="none"/><path stroke="#ef4444" stroke-width="1.5" d="M12 2v1.5M12 20.5V22M4.22 4.22l1.06 1.06M18.72 18.72l1.06 1.06M1 12h1.5M21.5 12H23M4.22 19.78l1.06-1.06M18.72 5.28l1.06-1.06"/></svg>';
             } else if (sourceKey === 'chill') {
-                // Snowflake / cold icon
+                // Snowflake / cold icon - cyan for frigid
                 svg = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g stroke="#06b6d4" stroke-width="1.5" fill="none"><path d="M12 2v20" /><path d="M4 8l16 8" /><path d="M20 8L4 16"/></g></svg>';
             } else {
                 // Thermometer (air temp)
@@ -519,33 +579,44 @@ function updateCurrentConditions() {
 
         // Determine if value is extreme and should alert/pulse
         let extreme = false;
-        if (sourceKey === 'heat' && activeValue >= FEELS_EXTREME_HEAT) extreme = true;
-        if (sourceKey === 'chill' && activeValue <= FEELS_EXTREME_COLD) extreme = true;
+        let extremeType = null;  // 'heat' or 'cold'
+        if (sourceKey === 'heat' && activeValue >= FEELS_EXTREME_HEAT) {
+            extreme = true;
+            extremeType = 'heat';
+        }
+        if (sourceKey === 'chill' && activeValue <= FEELS_EXTREME_COLD) {
+            extreme = true;
+            extremeType = 'cold';
+        }
 
         if (feelsRowEl) {
+            // Remove all alert classes first
+            feelsRowEl.classList.remove('cc-alert', 'cc-alert-heat', 'cc-alert-cold');
             if (extreme) {
-                feelsRowEl.classList.add('cc-alert');
-                console.log('[UI] Feels-like row: cc-alert class ADDED (extreme)');
+                const alertClass = extremeType === 'heat' ? 'cc-alert-heat' : 'cc-alert-cold';
+                feelsRowEl.classList.add(alertClass);
+                console.log('[UI] Feels-like row:', alertClass, 'class ADDED (extreme)');
             } else {
-                feelsRowEl.classList.remove('cc-alert');
-                console.log('[UI] Feels-like row: cc-alert class REMOVED');
+                console.log('[UI] Feels-like row: alert classes REMOVED');
             }
         }
 
         if (feelsIconEl) {
+            // Remove all pulse classes first
+            feelsIconEl.classList.remove('cc-pulse', 'cc-pulse-heat', 'cc-pulse-cold');
             if (extreme) {
-                feelsIconEl.classList.add('cc-pulse');
-                console.log('[UI] Feels icon: cc-pulse class ADDED (extreme)');
+                const pulseClass = extremeType === 'heat' ? 'cc-pulse-heat' : 'cc-pulse-cold';
+                feelsIconEl.classList.add(pulseClass);
+                console.log('[UI] Feels icon:', pulseClass, 'class ADDED (extreme)');
             } else {
-                feelsIconEl.classList.remove('cc-pulse');
-                console.log('[UI] Feels icon: cc-pulse class REMOVED');
+                console.log('[UI] Feels icon: pulse classes REMOVED');
             }
         }
 
     } else if (latestWeather && typeof latestWeather.temperature === 'number') {
         feelsLikeEl.textContent = latestWeather.temperature.toFixed(1) + ' °F (Air Temp)';
-        if (feelsRowEl) feelsRowEl.classList.remove('cc-alert');
-        if (feelsIconEl) feelsIconEl.classList.remove('cc-pulse');
+        if (feelsRowEl) feelsRowEl.classList.remove('cc-alert', 'cc-alert-heat', 'cc-alert-cold');
+        if (feelsIconEl) feelsIconEl.classList.remove('cc-pulse', 'cc-pulse-heat', 'cc-pulse-cold');
     } else {
         feelsLikeEl.textContent = '--';
     }
@@ -575,18 +646,18 @@ function updateCurrentConditions() {
     // Wind alert styling
 if (windRowEl) {
         if (windStrong) {
-            windRowEl.classList.add('cc-alert');
-            console.log('[UI] Wind alert row: cc-alert class ADDED');
+            windRowEl.classList.add('cc-alert-wind');
+            console.log('[UI] Wind alert row: cc-alert-wind class ADDED');
         } else {
-            windRowEl.classList.remove('cc-alert');
-            console.log('[UI] Wind alert row: cc-alert class REMOVED');
+            windRowEl.classList.remove('cc-alert-wind');
+            console.log('[UI] Wind alert row: cc-alert-wind class REMOVED');
         }
     }
 
     if (windIconEl) {
         if (windStrong) {
             windIconEl.classList.add('cc-pulse');
-            console.log('[UI] Wind icon: cc-pulse class ADDED (SVG should now be amber & pulsing)');
+            console.log('[UI] Wind icon: cc-pulse class ADDED (SVG should now be sky-blue & pulsing)');
         } else {
             windIconEl.classList.remove('cc-pulse');
             console.log('[UI] Wind icon: cc-pulse class REMOVED');
@@ -627,19 +698,19 @@ if (windRowEl) {
     // Highlight rows when there has been any rain today
     if (rainTodayRowEl) {
         if (typeof rainToday === 'number' && rainToday > 0) {
-            rainTodayRowEl.classList.add('cc-alert');
+            rainTodayRowEl.classList.add('cc-alert-rain');
         } else {
-            rainTodayRowEl.classList.remove('cc-alert');
+            rainTodayRowEl.classList.remove('cc-alert-rain');
         }
     }
 
     if (rainRateRowEl) {
         if (rainRecentlyActive && typeof latestRainRate === 'number' && latestRainRate > 0) {
-            rainRateRowEl.classList.add('cc-alert');
-            console.log('[UI] Rain rate alert row: cc-alert class ADDED');
+            rainRateRowEl.classList.add('cc-alert-rain');
+            console.log('[UI] Rain rate alert row: cc-alert-rain class ADDED');
         } else {
-            rainRateRowEl.classList.remove('cc-alert');
-            console.log('[UI] Rain rate alert row: cc-alert class REMOVED');
+            rainRateRowEl.classList.remove('cc-alert-rain');
+            console.log('[UI] Rain rate alert row: cc-alert-rain class REMOVED');
         }
     }
 
@@ -660,6 +731,15 @@ if (windRowEl) {
             lightningTodayEl.textContent = lightningToday.toFixed(0);
         } else {
             lightningTodayEl.textContent = '--';
+        }
+    }
+
+    // Lightning distance (show only when we have strikes today)
+    if (lightningDistEl) {
+        if (typeof lightningToday === 'number' && lightningToday > 0 && typeof lightningDistance === 'number') {
+            lightningDistEl.textContent = `Last strike: ${lightningDistance.toFixed(1)} mi away`;
+        } else {
+            lightningDistEl.textContent = '--';
         }
     }
 
@@ -708,6 +788,7 @@ function updateCelestialDisplay() {
     if (!celestialData) return;
 
     const sunriseSunsetEl = document.getElementById('cc-sunrise-sunset');
+    const daylightHoursEl = document.getElementById('cc-daylight-hours');
     const moonPhaseEl = document.getElementById('cc-moon-phase');
     const moonriseMoonsetEl = document.getElementById('cc-moonrise-moonset');
     const civilTwilightEl = document.getElementById('cc-civil-twilight');
@@ -740,10 +821,24 @@ function updateCelestialDisplay() {
         sunriseSunsetEl.textContent = `${sunrise} / ${sunset}`;
     }
 
-    // Moon Phase
+    // Daylight Hours (use pre-formatted value from backend)
+    if (daylightHoursEl) {
+        if (celestialData.daylightHoursFormatted) {
+            daylightHoursEl.textContent = celestialData.daylightHoursFormatted;
+        } else if (celestialData.daylightHours) {
+            // Fallback to client-side formatting if backend doesn't provide formatted value
+            const hours = Math.floor(celestialData.daylightHours);
+            const minutes = Math.round((celestialData.daylightHours - hours) * 60);
+            daylightHoursEl.textContent = `${hours}h ${minutes}m`;
+        } else {
+            daylightHoursEl.textContent = '--';
+        }
+    }
+
+    // Moon Phase (use pre-computed percentage from backend)
     if (moonPhaseEl && celestialData.moonPhase) {
-        const fraction = (celestialData.moonPhase.fraction * 100).toFixed(0);
-        moonPhaseEl.textContent = `${celestialData.moonPhase.name} (${fraction}%)`;
+        const percentage = celestialData.moonPhase.percentage || Math.round(celestialData.moonPhase.fraction * 100);
+        moonPhaseEl.textContent = `${celestialData.moonPhase.name} (${percentage}%)`;
         
         // Update moon icon based on phase
         if (moonPhaseIconEl) {
@@ -834,6 +929,98 @@ function updateCelestialDisplay() {
         }
         blueHourEveningEl.textContent = beText;
     }
+    
+    // Highlight current celestial phase
+    highlightCurrentCelestialPhase();
+}
+
+function highlightCurrentCelestialPhase() {
+    if (!celestialData) return;
+    
+    const now = new Date();
+    
+    // Remove all existing highlights
+    document.querySelectorAll('.cc-row').forEach(row => {
+        row.style.backgroundColor = '';
+        row.style.borderLeft = '';
+    });
+    
+    // Helper to check if now is between two times
+    const isBetween = (start, end) => {
+        if (!start || !end) return false;
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        return now >= startDate && now <= endDate;
+    };
+    
+    // Check each phase and apply appropriate highlight
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    // Blue Hour Morning (deep blue)
+    if (isBetween(celestialData.blueHourMorningStart, celestialData.blueHourMorningEnd)) {
+        const el = document.getElementById('cc-blue-hour-morning')?.closest('.cc-row');
+        if (el) {
+            el.style.backgroundColor = isDarkMode ? 'rgba(37, 99, 235, 0.2)' : 'rgba(147, 197, 253, 0.3)';
+            el.style.borderLeft = '4px solid #3b82f6';
+        }
+    }
+    
+    // Blue Hour Evening (deep blue)
+    if (isBetween(celestialData.blueHourEveningStart, celestialData.blueHourEveningEnd)) {
+        const el = document.getElementById('cc-blue-hour-evening')?.closest('.cc-row');
+        if (el) {
+            el.style.backgroundColor = isDarkMode ? 'rgba(37, 99, 235, 0.2)' : 'rgba(147, 197, 253, 0.3)';
+            el.style.borderLeft = '4px solid #3b82f6';
+        }
+    }
+    
+    // Golden Hour Morning (golden/orange)
+    if (isBetween(celestialData.goldenHourMorningStart, celestialData.goldenHourMorningEnd)) {
+        const el = document.getElementById('cc-golden-hour-morning')?.closest('.cc-row');
+        if (el) {
+            el.style.backgroundColor = isDarkMode ? 'rgba(251, 191, 36, 0.2)' : 'rgba(253, 230, 138, 0.4)';
+            el.style.borderLeft = '4px solid #f59e0b';
+        }
+    }
+    
+    // Golden Hour Evening (golden/orange)
+    if (isBetween(celestialData.goldenHourEveningStart, celestialData.goldenHourEveningEnd)) {
+        const el = document.getElementById('cc-golden-hour-evening')?.closest('.cc-row');
+        if (el) {
+            el.style.backgroundColor = isDarkMode ? 'rgba(251, 191, 36, 0.2)' : 'rgba(253, 230, 138, 0.4)';
+            el.style.borderLeft = '4px solid #f59e0b';
+        }
+    }
+    
+    // Civil Twilight (orange-purple, lighter)
+    if (isBetween(celestialData.civilDawn, celestialData.sunrise) || 
+        isBetween(celestialData.sunset, celestialData.civilDusk)) {
+        const el = document.getElementById('cc-civil-twilight')?.closest('.cc-row');
+        if (el) {
+            el.style.backgroundColor = isDarkMode ? 'rgba(168, 85, 247, 0.2)' : 'rgba(251, 207, 232, 0.3)';
+            el.style.borderLeft = '4px solid #a855f7';
+        }
+    }
+    
+    // Nautical Twilight (darker purple)
+    if (isBetween(celestialData.nauticalDawn, celestialData.civilDawn) || 
+        isBetween(celestialData.civilDusk, celestialData.nauticalDusk)) {
+        const el = document.getElementById('cc-nautical-twilight')?.closest('.cc-row');
+        if (el) {
+            el.style.backgroundColor = isDarkMode ? 'rgba(109, 40, 217, 0.2)' : 'rgba(167, 139, 250, 0.3)';
+            el.style.borderLeft = '4px solid #7c3aed';
+        }
+    }
+    
+    // Astronomical Twilight (very dark, almost black)
+    if (isBetween(celestialData.astronomicalDawn, celestialData.nauticalDawn) || 
+        isBetween(celestialData.nauticalDusk, celestialData.astronomicalDusk)) {
+        const el = document.getElementById('cc-astronomical-twilight')?.closest('.cc-row');
+        if (el) {
+            el.style.backgroundColor = isDarkMode ? 'rgba(30, 27, 75, 0.3)' : 'rgba(88, 28, 135, 0.25)';
+            el.style.borderLeft = '4px solid #4c1d95';
+        }
+    }
 }
 
 function getMoonPhaseSVG(fraction) {
@@ -873,5 +1060,12 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleBtn.textContent = isHidden ? 'Hide Details ▲' : 'Show Details ▼';
         });
     }
+    
+    // Update celestial phase highlighting every minute
+    setInterval(() => {
+        if (typeof highlightCurrentCelestialPhase === 'function') {
+            highlightCurrentCelestialPhase();
+        }
+    }, 60000); // Update every minute
 });
 

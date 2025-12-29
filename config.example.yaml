@@ -22,3 +22,10 @@ location:
   latitude: 0.0
   longitude: 0.0
   altitude: 0  # feet above sea level
+
+# Alert thresholds
+alerts:
+  extreme_heat: 95.0   # °F heat index threshold
+  extreme_cold: 32.0   # °F wind chill threshold
+  wind_speed: 20.0     # mph sustained wind threshold
+  wind_gust: 25.0      # mph wind gust threshold

@@ -36,10 +36,22 @@ type LocationConfig struct {
 	Altitude float64 `yaml:"altitude"`
 }
 
+type AlertsConfig struct {
+	// Extreme heat threshold (°F heat index)
+	ExtremeHeat float64 `yaml:"extreme_heat"`
+	// Extreme cold threshold (°F wind chill)
+	ExtremeCold float64 `yaml:"extreme_cold"`
+	// Strong wind speed threshold (mph)
+	WindSpeed float64 `yaml:"wind_speed"`
+	// Strong wind gust threshold (mph)
+	WindGust float64 `yaml:"wind_gust"`
+}
+
 type AppConfig struct {
 	DB       DBConfig       `yaml:"db"`
 	Server   ServerConfig   `yaml:"server"`
 	Location LocationConfig `yaml:"location"`
+	Alerts   AlertsConfig   `yaml:"alerts"`
 }
 
 var appConfig AppConfig
