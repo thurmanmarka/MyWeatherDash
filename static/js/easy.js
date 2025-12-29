@@ -13,6 +13,7 @@
     const columnContainer = document.getElementById('easyColumnContainer');
     const addColumnBtn = document.getElementById('easyAddColumn');
     const removeColumnBtn = document.getElementById('easyRemoveColumn');
+    const presetSelect = document.getElementById('easyPreset');
 
     // Available columns for selection
     const availableColumns = [
@@ -35,6 +36,21 @@
 
     // Track column dropdowns
     let columnCount = 0;
+
+    // Ensure there are exactly n dynamic columns
+    function ensureColumnCount(n) {
+        while (columnCount < n) {
+            createColumnDropdown();
+        }
+        while (columnCount > n) {
+            const rows = columnContainer.querySelectorAll('.easy-column-row');
+            if (rows.length > 0) {
+                columnContainer.removeChild(rows[rows.length - 1]);
+                columnCount--;
+                updateColumnLabels();
+            }
+        }
+    }
 
     // Create a column dropdown
     function createColumnDropdown() {
@@ -110,6 +126,45 @@
             updateColumnLabels();
         }
     });
+
+    // Keyboard navigation between column selects (Ctrl+ArrowUp/Down)
+    columnContainer.addEventListener('keydown', (e) => {
+        if (!e.ctrlKey) return;
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+
+        const selects = Array.from(columnContainer.querySelectorAll('.easy-column-row select'));
+        const index = selects.indexOf(e.target);
+        if (index === -1) return;
+
+        e.preventDefault();
+        if (e.key === 'ArrowDown' && index < selects.length - 1) {
+            selects[index + 1].focus();
+        } else if (e.key === 'ArrowUp' && index > 0) {
+            selects[index - 1].focus();
+        }
+    });
+
+    // Preset handling
+    function applyPreset(key) {
+        const presets = {
+            outdoor_common: ['outTemp','outHumidity','windSpeed','windGust','barometer','rainRate','rain'],
+            lightning: ['lightning_strike_count','lightning_distance'],
+            inside: ['inTemp','inHumidity'],
+            wind_focus: ['windSpeed','windGust','windDir']
+        };
+        const values = presets[key];
+        if (!values) return;
+
+        ensureColumnCount(values.length);
+        const selects = columnContainer.querySelectorAll('.easy-column-row select');
+        values.forEach((v, i) => { if (selects[i]) selects[i].value = v; });
+    }
+
+    if (presetSelect) {
+        presetSelect.addEventListener('change', () => {
+            applyPreset(presetSelect.value);
+        });
+    }
 
     // Initialize with default columns (Temperature, Humidity)
     createColumnDropdown();
