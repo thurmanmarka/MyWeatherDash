@@ -113,7 +113,7 @@ func handleBarometer(w http.ResponseWriter, r *http.Request) {
 	var readings []BarometerReading
 	for rows.Next() {
 		var epochSec int64
-		var pressure float64
+		var pressure sql.NullFloat64
 
 		if err := rows.Scan(&epochSec, &pressure); err != nil {
 			log.Println("DB scan error (barometer):", err)
@@ -125,7 +125,7 @@ func handleBarometer(w http.ResponseWriter, r *http.Request) {
 
 		readings = append(readings, BarometerReading{
 			Timestamp: ts,
-			Pressure:  pressure,
+			Pressure:  pressure.Float64,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -243,7 +243,7 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 	var readings []WeatherReading
 	for rows.Next() {
 		var epochSec int64
-		var tempF, dewF float64
+		var tempF, dewF sql.NullFloat64
 
 		if err := rows.Scan(&epochSec, &tempF, &dewF); err != nil {
 			log.Println("DB scan error (weather):", err)
@@ -255,8 +255,8 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
 		readings = append(readings, WeatherReading{
 			Timestamp:   ts,
-			Temperature: tempF,
-			Dewpoint:    dewF,
+			Temperature: tempF.Float64,
+			Dewpoint:    dewF.Float64,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -294,7 +294,7 @@ func handleFeelsLike(w http.ResponseWriter, r *http.Request) {
 	var readings []FeelsLikeReading
 	for rows.Next() {
 		var epochSec int64
-		var heatF, chillF, tempF float64
+		var heatF, chillF, tempF sql.NullFloat64
 
 		if err := rows.Scan(&epochSec, &heatF, &chillF, &tempF); err != nil {
 			log.Println("DB scan error (feelslike):", err)
@@ -306,8 +306,8 @@ func handleFeelsLike(w http.ResponseWriter, r *http.Request) {
 
 		reading := FeelsLikeReading{
 			Timestamp: ts,
-			HeatIndex: heatF,
-			WindChill: chillF,
+			HeatIndex: heatF.Float64,  // Will be 0 if NULL
+			WindChill: chillF.Float64, // Will be 0 if NULL
 		}
 
 		// For the latest reading, compute active feels-like value
@@ -399,7 +399,7 @@ func handleHumidity(w http.ResponseWriter, r *http.Request) {
 	var readings []HumidityReading
 	for rows.Next() {
 		var epochSec int64
-		var hum float64
+		var hum sql.NullFloat64
 
 		if err := rows.Scan(&epochSec, &hum); err != nil {
 			log.Println("DB scan error (humidity):", err)
@@ -411,7 +411,7 @@ func handleHumidity(w http.ResponseWriter, r *http.Request) {
 
 		readings = append(readings, HumidityReading{
 			Timestamp: ts,
-			Humidity:  hum,
+			Humidity:  hum.Float64,
 		})
 	}
 
@@ -448,7 +448,7 @@ func handleWind(w http.ResponseWriter, r *http.Request) {
 	var readings []WindReading
 	for rows.Next() {
 		var epochSec int64
-		var speed, gust float64
+		var speed, gust sql.NullFloat64
 		var dir sql.NullFloat64
 
 		if err := rows.Scan(&epochSec, &speed, &gust, &dir); err != nil {
@@ -467,8 +467,8 @@ func handleWind(w http.ResponseWriter, r *http.Request) {
 
 		readings = append(readings, WindReading{
 			Timestamp: ts,
-			Speed:     speed,
-			Gust:      gust,
+			Speed:     speed.Float64,
+			Gust:      gust.Float64,
 			Direction: dirPtr,
 		})
 	}
@@ -539,7 +539,7 @@ func handleRain(w http.ResponseWriter, r *http.Request) {
 	var readings []RainReading
 	for rows.Next() {
 		var epochSec int64
-		var rate, amount float64
+		var rate, amount sql.NullFloat64
 
 		if err := rows.Scan(&epochSec, &rate, &amount); err != nil {
 			log.Println("DB scan error (rain):", err)
@@ -551,8 +551,8 @@ func handleRain(w http.ResponseWriter, r *http.Request) {
 
 		readings = append(readings, RainReading{
 			Timestamp: ts,
-			Rate:      rate,
-			Amount:    amount,
+			Rate:      rate.Float64,
+			Amount:    amount.Float64,
 		})
 	}
 	if err := rows.Err(); err != nil {
