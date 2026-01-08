@@ -783,9 +783,20 @@
         .cc-value { font-weight: normal; }
         .stats-label, .stats-val { font-size: 0.78rem; }
         .stats-val { font-weight: normal; }
+
+        .disabled-btn {
+            opacity: 0.55;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+            transform: none !important;
+        }
+        .disabled-btn:hover {
+            background: var(--panel-bg) !important;
+            color: var(--text-muted) !important;
+        }
     </style>
 </head>
-<body>
+    <body data-role="{{.Role}}">
 <div class="page-shell">
     <div class="page-header">
         <h1>{{ .LocationName }} Weather</h1>
@@ -801,7 +812,7 @@
                 <button class="range-button" data-range="month">Month</button>
             </div>
             <button id="noaaBtn">📊 NOAA Reports</button>
-            <button id="easyBtn">
+            <button id="easyBtn" {{if .IsGuest}}class="disabled-btn" disabled aria-disabled="true" data-disabled="true" title="Guest role cannot export CSV"{{end}}>
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                     <!-- Button shadow -->
                     <circle cx="100" cy="108" r="70" fill="#b30000"/>
@@ -1366,7 +1377,7 @@
             </select>
             <button id="noaaLoad">Load</button>
             <button id="noaaDownload">Download</button>
-            <button id="noaaRecompile" style="background: #f59e0b; margin-left: 10px;">🔄 Force Recompile</button>
+            <button id="noaaRecompile" style="background: #f59e0b; margin-left: 10px;" {{if .IsGuest}}class="disabled-btn" disabled aria-disabled="true" data-disabled="true" title="Guest role cannot force recompile"{{end}}>🔄 Force Recompile</button>
         </div>
         <pre id="noaaContent" class="noaa-content">Select options and click Load</pre>
     </div>
@@ -1478,7 +1489,7 @@
                     </button>
                 </div>
             </div>
-            <button id="easyDownload" style="padding: 10px 20px; font-size: 1rem;">
+            <button id="easyDownload" style="padding: 10px 20px; font-size: 1rem;" {{if .IsGuest}}class="disabled-btn" disabled aria-disabled="true" data-disabled="true" title="Guest role cannot export CSV"{{end}}>
                 <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                     <!-- Button shadow -->
                     <circle cx="100" cy="108" r="70" fill="#b30000"/>
@@ -1507,6 +1518,26 @@
      // Alert thresholds from server config
      window.APP_CONFIG.extremeHeat = {{ .ExtremeHeat }};
      window.APP_CONFIG.extremeCold = {{ .ExtremeCold }};
+     // Role from hub proxy (used to gate UI for guests)
+     window.APP_CONFIG.role = "{{.Role}}";
+     window.APP_CONFIG.isGuest = {{if .IsGuest}}true{{else}}false{{end}};
+
+     // Client-side safeguard: if not guest, ensure buttons are enabled
+     (function() {
+         const role = (window.APP_CONFIG.role || '').toLowerCase();
+         const isGuest = role === 'guest' || window.APP_CONFIG.isGuest;
+         if (isGuest) return;
+
+         const ids = ['easyBtn', 'easyDownload', 'noaaRecompile'];
+         ids.forEach(id => {
+             const el = document.getElementById(id);
+             if (!el) return;
+             el.removeAttribute('disabled');
+             el.removeAttribute('aria-disabled');
+             el.dataset.disabled = 'false';
+             el.classList.remove('disabled-btn');
+         });
+     })();
      
      // Dark mode toggle functionality
      (function() {

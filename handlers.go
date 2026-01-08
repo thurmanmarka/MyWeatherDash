@@ -36,6 +36,11 @@ var celestialGroup singleflight.Group
 
 func handleHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
+
+	role := strings.ToLower(r.Header.Get("X-Hub-Role"))
+	if role == "" {
+		role = "admin" // Direct access (no Hub proxy) gets full access
+	}
 	// Provide client-side polling interval (ms) to the template
 	data := struct {
 		ClientPollMs int
@@ -43,12 +48,16 @@ func handleHome(w http.ResponseWriter, r *http.Request) {
 		LocationName string
 		ExtremeHeat  float64
 		ExtremeCold  float64
+		Role         string
+		IsGuest      bool
 	}{
 		ClientPollMs: appConfig.Server.ClientPollSeconds * 1000,
 		AssetVersion: time.Now().Format("20060102T150405"),
 		LocationName: appConfig.Location.Name,
 		ExtremeHeat:  appConfig.Alerts.ExtremeHeat,
 		ExtremeCold:  appConfig.Alerts.ExtremeCold,
+		Role:         role,
+		IsGuest:      role == "guest",
 	}
 
 	if err := tmplIndex.Execute(w, data); err != nil {
@@ -769,10 +778,16 @@ func handleInsideHumidity(w http.ResponseWriter, r *http.Request) {
 
 func handleNOAAMonthly(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
+	role := strings.ToLower(r.Header.Get("X-Hub-Role"))
 	yearStr := r.URL.Query().Get("year")
 	monthStr := r.URL.Query().Get("month")
 	forceStr := r.URL.Query().Get("force")
 	force := forceStr == "1" || forceStr == "true"
+
+	if force && role == "guest" {
+		http.Error(w, "Guest role cannot force recompile NOAA reports", http.StatusForbidden)
+		return
+	}
 	now := time.Now()
 	year := now.Year()
 	month := int(now.Month())
@@ -799,9 +814,15 @@ func handleNOAAMonthly(w http.ResponseWriter, r *http.Request) {
 
 func handleNOAAYearly(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
+	role := strings.ToLower(r.Header.Get("X-Hub-Role"))
 	yearStr := r.URL.Query().Get("year")
 	forceStr := r.URL.Query().Get("force")
 	force := forceStr == "1" || forceStr == "true"
+
+	if force && role == "guest" {
+		http.Error(w, "Guest role cannot force recompile NOAA reports", http.StatusForbidden)
+		return
+	}
 	year := time.Now().Year()
 	if yearStr != "" {
 		if v, err := strconv.Atoi(yearStr); err == nil {
@@ -1714,6 +1735,13 @@ func handleCSVDaily(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCSVRange(w http.ResponseWriter, r *http.Request) {
+	role := strings.ToLower(r.Header.Get("X-Hub-Role"))
+	// Only block if explicitly marked as guest via Hub
+	if role == "guest" {
+		http.Error(w, "Guest role cannot export CSV ranges", http.StatusForbidden)
+		return
+	}
+
 	// Get date range parameters
 	startYearStr := r.URL.Query().Get("startYear")
 	startMonthStr := r.URL.Query().Get("startMonth")

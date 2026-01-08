@@ -15,6 +15,16 @@
     const removeColumnBtn = document.getElementById('easyRemoveColumn');
     const presetSelect = document.getElementById('easyPreset');
 
+    if (!btn || btn.dataset.disabled === "true") {
+        if (btn) {
+            btn.classList.add('disabled-btn');
+        }
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+        }
+        return;
+    }
+
     // Available columns for selection
     const availableColumns = [
         { value: 'outTemp', label: 'Temperature' },

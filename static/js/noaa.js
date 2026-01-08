@@ -14,6 +14,8 @@
     const btnRecompile = document.getElementById('noaaRecompile');
     const contentEl = document.getElementById('noaaContent');
 
+    const recompileDisabled = btnRecompile && btnRecompile.dataset.disabled === "true";
+
     // Populate year dropdown (current year - 5 to current year)
     const currentYear = new Date().getFullYear();
     for (let y = currentYear; y >= currentYear - 5; y--) {
@@ -109,6 +111,7 @@
     });
 
     // Force recompile report (deletes cached file and regenerates)
+    if (!recompileDisabled) {
     btnRecompile.addEventListener('click', async () => {
         const type = typeSelect.value;
         const year = yearSelect.value;
@@ -151,6 +154,9 @@
             btnRecompile.disabled = false;
         }
     });
+    } else if (btnRecompile) {
+        btnRecompile.disabled = true;
+    }
 
     // Initialize month visibility
     monthSelect.style.display = typeSelect.value === 'monthly' ? 'inline-block' : 'none';
