@@ -125,7 +125,8 @@
         }
 
         #reloadBtn,
-        #themeToggle {
+        #themeToggle,
+        #homeBtn {
             padding: 6px 12px;
             font-size: 0.8rem;
             border-radius: 999px;
@@ -137,16 +138,19 @@
             align-items: center;
             gap: 4px;
             transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+            text-decoration: none;
         }
 
         #reloadBtn:hover,
-        #themeToggle:hover {
+        #themeToggle:hover,
+        #homeBtn:hover {
             background: var(--accent-soft);
             box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
         }
 
         #reloadBtn:active,
-        #themeToggle:active {
+        #themeToggle:active,
+        #homeBtn:active {
             transform: translateY(1px);
             box-shadow: none;
         }
@@ -816,6 +820,7 @@
 
         <div style="display: flex; align-items: center; gap: 10px;">
             <span id="status"></span>
+            <a href="/" id="homeBtn" title="Back to Home Services Hub">🏠 Home</a>
             <button id="themeToggle" title="Toggle dark mode">🌙</button>
             <button id="reloadBtn">⟳ Reload</button>
         </div>
