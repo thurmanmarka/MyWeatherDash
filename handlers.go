@@ -1374,9 +1374,8 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 		return CelestialData{}, fmt.Errorf("moonrise/moonset calculation: %w", moonErr)
 	}
 
-	// Compute moon phase at current time (or noon on the requested date)
-	noonTime := time.Date(date.Year(), date.Month(), date.Day(), 12, 0, 0, 0, loc)
-	moonPhase, phaseErr := astroglide.MoonPhaseAt(noonTime)
+	// Compute moon phase at current time
+	moonPhase, phaseErr := astroglide.MoonPhaseAt(time.Now())
 	// Non-fatal if phase calculation fails
 
 	// Compute twilight times
