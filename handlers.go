@@ -1430,7 +1430,7 @@ func computeCelestialData(coords astroglide.Coordinates, date time.Time, loc *ti
 
 	// Add moon phase if available
 	if phaseErr == nil {
-		percentage := int(moonPhase.Fraction * 100)
+		percentage := math.Round(moonPhase.Fraction*1000) / 10
 		celestial.MoonPhase = &MoonPhase{
 			Fraction:   moonPhase.Fraction,
 			Elongation: moonPhase.Elongation,

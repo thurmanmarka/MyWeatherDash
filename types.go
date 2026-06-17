@@ -131,7 +131,7 @@ type MoonPhase struct {
 	Elongation float64 `json:"elongation"` // degrees
 	Waxing     bool    `json:"waxing"`     // true if waxing
 	Name       string  `json:"name"`       // e.g. "Waxing Gibbous"
-	Percentage int     `json:"percentage"` // Illumination percentage (0-100)
+	Percentage float64 `json:"percentage"` // Illumination percentage (0-100)
 }
 
 // StatisticsData holds aggregated metrics for today and the selected range

@@ -847,7 +847,7 @@ function updateCelestialDisplay() {
 
     // Moon Phase (use pre-computed percentage from backend)
     if (moonPhaseEl && celestialData.moonPhase) {
-        const percentage = celestialData.moonPhase.percentage || Math.round(celestialData.moonPhase.fraction * 100);
+        const percentage = celestialData.moonPhase.percentage || Math.round(celestialData.moonPhase.fraction * 1000) / 10;
         moonPhaseEl.textContent = `${celestialData.moonPhase.name} (${percentage}%)`;
         
         // Update moon icon based on phase
