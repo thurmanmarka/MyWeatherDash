@@ -1347,10 +1347,7 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 
 	celestial := result.(CelestialData)
 
-	// Cache the result until the next local midnight for the requested date
-	// Compute next midnight explicitly in the request's location to avoid timezone issues.
-	nextMidnight := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc).Add(24 * time.Hour)
-	expiry := nextMidnight
+	expiry := time.Now().Add(15 * time.Minute)
 	celestialCache.Lock()
 	celestialCache.m[cacheKey] = &cachedCelestial{data: celestial, expiry: expiry}
 	celestialCache.Unlock()
@@ -1540,7 +1537,7 @@ func refreshCelestialCacheDaily(stop <-chan struct{}) {
 			// Refresh today
 			if data, err := computeCelestialData(coords, today, loc); err == nil {
 				cacheKey := today.Format("2006-01-02") + "|" + loc.String()
-				expiry := today.Add(24 * time.Hour)
+				expiry := time.Now().Add(15 * time.Minute)
 				celestialCache.Lock()
 				celestialCache.m[cacheKey] = &cachedCelestial{data: data, expiry: expiry}
 				celestialCache.Unlock()
@@ -1552,7 +1549,7 @@ func refreshCelestialCacheDaily(stop <-chan struct{}) {
 			// Refresh tomorrow
 			if data, err := computeCelestialData(coords, tomorrow, loc); err == nil {
 				cacheKey := tomorrow.Format("2006-01-02") + "|" + loc.String()
-				expiry := tomorrow.Add(24 * time.Hour)
+				expiry := time.Now().Add(15 * time.Minute)
 				celestialCache.Lock()
 				celestialCache.m[cacheKey] = &cachedCelestial{data: data, expiry: expiry}
 				celestialCache.Unlock()
