@@ -59,8 +59,31 @@ let windStrong = false;
 const FEELS_EXTREME_HEAT = window.APP_CONFIG?.extremeHeat || 95; // °F heat index threshold
 const FEELS_EXTREME_COLD = window.APP_CONFIG?.extremeCold || 32; // °F wind chill threshold
 
-// Day / Week / Month selector
+// Day / Week / Month / Custom selector
 let currentRange = 'day';
+let customStart = null; // Date for custom range start
+let customEnd   = null; // Date for custom range end
+
+// Returns the query string to append to all history API endpoints.
+// Yields ?start=<unix>&end=<unix> for custom, or ?range=<value> otherwise.
+function getHistoryQueryString() {
+    if (currentRange === 'custom' && customStart && customEnd) {
+        const s = Math.floor(customStart.getTime() / 1000);
+        const e = Math.floor(customEnd.getTime() / 1000);
+        return `?start=${s}&end=${e}`;
+    }
+    return `?range=${encodeURIComponent(currentRange)}`;
+}
+
+// Returns the effective span in days (used to pick tick-label density for custom ranges).
+function getEffectiveRangeDays() {
+    if (currentRange === 'custom' && customStart && customEnd) {
+        return (customEnd.getTime() - customStart.getTime()) / (24 * 60 * 60 * 1000);
+    }
+    if (currentRange === 'week')  return 7;
+    if (currentRange === 'month') return 30;
+    return 1;
+}
 
 // ---------------------------------------------------------------------
 // Celestial data loader
@@ -130,7 +153,12 @@ function makeTimeTickOptions(times) {
     const timesForTicks  = times.slice();
     const labelsForTicks = new Array(timesForTicks.length).fill('');
 
-    if (currentRange === 'day' && timesForTicks.length) {
+    const days = getEffectiveRangeDays();
+    const isDay   = currentRange === 'day'   || (currentRange === 'custom' && days <= 2);
+    const isWeek  = currentRange === 'week'  || (currentRange === 'custom' && days > 2 && days <= 14);
+    const isMonth = currentRange === 'month' || (currentRange === 'custom' && days > 14);
+
+    if (isDay && timesForTicks.length) {
         const FOUR_HOURS = 4 * 60 * 60 * 1000;
 
         const first = timesForTicks[0];
@@ -163,18 +191,16 @@ function makeTimeTickOptions(times) {
             labelsForTicks[idx] = formatTime24(new Date(boundary));
             boundary += FOUR_HOURS;
         }
-    } else if (currentRange === 'week' && timesForTicks.length) {
+    } else if (isWeek && timesForTicks.length) {
         // Place labels at local midnight for each day in the range
         const first = timesForTicks[0];
         const last  = timesForTicks[timesForTicks.length - 1];
 
-        // Start from the midnight of the first day
         let cursor = new Date(first.getFullYear(), first.getMonth(), first.getDate());
         const endMs = last.getTime();
 
         while (cursor.getTime() <= endMs) {
             const boundaryMs = cursor.getTime();
-            // Find first index whose time >= this boundary
             let idx = -1;
             for (let i = 0; i < timesForTicks.length; i++) {
                 if (timesForTicks[i].getTime() >= boundaryMs) {
@@ -184,15 +210,13 @@ function makeTimeTickOptions(times) {
             }
             if (idx === -1) break;
 
-            // Label with two-digit day (DD)
             const label = `${String(cursor.getDate()).padStart(2,'0')}`;
             labelsForTicks[idx] = label;
 
-            // advance by one day
             cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
         }
-    } else if (currentRange === 'month' && timesForTicks.length) {
-        // Label local midnight for each day in the month range; show DD only.
+    } else if (isMonth && timesForTicks.length) {
+        // Label local midnight for each day; show only odd day numbers to reduce crowding.
         const first = timesForTicks[0];
         const last  = timesForTicks[timesForTicks.length - 1];
         let cursor = new Date(first.getFullYear(), first.getMonth(), first.getDate());
@@ -206,7 +230,6 @@ function makeTimeTickOptions(times) {
             }
             if (idx === -1) break;
             const dayNum = cursor.getDate();
-            // Show only every other day label (odd day numbers) to reduce crowding.
             if (dayNum % 2 === 1) {
                 labelsForTicks[idx] = String(dayNum).padStart(2,'0');
             }
@@ -218,19 +241,7 @@ function makeTimeTickOptions(times) {
         autoSkip: false,
         maxRotation: 0,
         callback(value, index) {
-            const t = timesForTicks[index];
-            if (!t) return '';
-
-            if (currentRange === 'day') {
-                return labelsForTicks[index] || '';
-            } else if (currentRange === 'week') {
-                // show only the computed midnight labels, otherwise empty
-                return labelsForTicks[index] || '';
-            } else if (currentRange === 'month') {
-                return labelsForTicks[index] || '';
-            } else {
-                return formatDateTime24(t);
-            }
+            return labelsForTicks[index] || '';
         }
     };
 }
@@ -477,7 +488,18 @@ function setRange(range) {
         btn.classList.toggle('active', btn.dataset.range === range);
     });
 
-    loadAll();
+    const customPanel = document.getElementById('custom-range-panel');
+    if (customPanel) {
+        customPanel.style.display = (range === 'custom') ? 'flex' : 'none';
+    }
+
+    // For custom, wait for the user to click Apply before loading data
+    if (range !== 'custom') {
+        loadAll();
+        if (typeof window.computeStatistics === 'function') {
+            window.computeStatistics(range);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------

@@ -8,8 +8,7 @@
 
     async function computeStatistics(range) {
         try {
-            const q = `?range=${encodeURIComponent(range)}`;
-            const stats = await fetchJSON(`/api/statistics${q}`);
+            const stats = await fetchJSON(`/api/statistics${getHistoryQueryString()}`);
 
             // Update all Today/Range values directly from backend response
             const el = (id) => document.getElementById(id);
@@ -158,41 +157,37 @@
                 if (unitEl) unitEl.textContent = text;
             }
 
-            // Update Range column header to current mode (Day/Week/Month)
+            const todayLabelEl = el('stats-today-label');
             const rangeLabelEl = el('stats-range-label');
+            if (todayLabelEl) {
+                todayLabelEl.textContent = 'Today';
+            }
             if (rangeLabelEl) {
-                rangeLabelEl.textContent = (range === 'day') ? 'Day' : (range === 'week') ? 'Week' : 'Month';
+                if (range === 'day') {
+                    rangeLabelEl.textContent = 'Day';
+                } else if (range === 'week') {
+                    rangeLabelEl.textContent = 'Week';
+                } else if (range === 'month') {
+                    rangeLabelEl.textContent = 'Month';
+                } else if (range === 'custom' && customStart && customEnd) {
+                    const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+                    rangeLabelEl.textContent = `${fmt(customStart)}–${fmt(customEnd)}`;
+                } else {
+                    rangeLabelEl.textContent = 'Range';
+                }
             }
         } catch (e) {
             console.warn('[Statistics] failed to compute', e);
         }
     }
 
-    // Hook into existing lifecycle if available
-    if (typeof window !== 'undefined') {
-        const originalLoadAllCharts = window.loadAllCharts;
-        if (typeof originalLoadAllCharts === 'function') {
-            window.loadAllCharts = async function() {
-                await originalLoadAllCharts();
-                const range = window.currentRange || 'day';
-                computeStatistics(range);
-            };
-        }
+    // Expose globally so setRange (core.js) and the Apply button can call it directly
+    window.computeStatistics = computeStatistics;
 
-        const originalSetRange = window.setRange;
-        if (typeof originalSetRange === 'function') {
-            window.setRange = function(range) {
-                originalSetRange(range);
-                computeStatistics(range);
-            };
-        }
-
-        // Initial compute on load if currentRange exists
-        document.addEventListener('DOMContentLoaded', () => {
-            const range = window.currentRange || 'day';
-            computeStatistics(range);
-        });
-    }
+    // Initial compute once DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        computeStatistics('day');
+    });
 })();
 // ---------------------------------------------------------------------
 // Build banner for quick cache/version verification
@@ -216,7 +211,7 @@ async function loadWeather() {
     statusEl.textContent = 'Loading data (' + currentRange + ')...';
 
     try {
-        const res = await fetch('/api/weather?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/weather' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -317,7 +312,7 @@ async function loadBarometer() {
     updateCurrentConditions();
 
     try {
-        const res = await fetch('/api/barometer?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/barometer' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -402,7 +397,7 @@ async function loadFeelsLike() {
     updateCurrentConditions();
 
     try {
-        const res = await fetch('/api/feelslike?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/feelslike' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -502,7 +497,7 @@ async function loadHumidity() {
     updateCurrentConditions();
 
     try {
-        const res = await fetch('/api/humidity?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/humidity' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -586,7 +581,7 @@ async function loadWind() {
     updateCurrentConditions();
 
     try {
-        const res = await fetch('/api/wind?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/wind' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -795,7 +790,7 @@ function renderWindVectorChart(speeds, dirs, times) {
 // ---------------------------------------------------------------------
 async function loadWindDirection() {
     try {
-        const res = await fetch('/api/wind?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/wind' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -895,7 +890,7 @@ function renderWindDirectionChart(labels, dirs, speeds, times) {
 // ---------------------------------------------------------------------
 async function loadRain() {
     try {
-        const res = await fetch('/api/rain?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/rain' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -1084,7 +1079,7 @@ function renderRainRateChart(labels, rates, times) {
 // ---------------------------------------------------------------------
 async function loadLightning() {
     try {
-        const res = await fetch('/api/lightning?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/lightning' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -1297,7 +1292,7 @@ async function loadInsideTemp() {
     updateCurrentConditions();
 
     try {
-        const res = await fetch('/api/insideTemp?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/insideTemp' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -1378,7 +1373,7 @@ async function loadInsideHumidity() {
     updateCurrentConditions();
 
     try {
-        const res = await fetch('/api/insideHumidity?range=' + encodeURIComponent(currentRange));
+        const res = await fetch('/api/insideHumidity' + getHistoryQueryString());
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const data = await res.json();
@@ -1488,6 +1483,28 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.range-button').forEach(btn => {
         btn.addEventListener('click', () => setRange(btn.dataset.range));
     });
+
+    // Custom date range: Apply button
+    const applyBtn = document.getElementById('custom-apply-btn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+            const startInput = document.getElementById('custom-start');
+            const endInput   = document.getElementById('custom-end');
+            if (!startInput.value || !endInput.value) {
+                alert('Please select both a start and end date/time.');
+                return;
+            }
+            const s = new Date(startInput.value);
+            const e = new Date(endInput.value);
+            if (s >= e) {
+                alert('Start must be before end.');
+                return;
+            }
+            customStart = s;
+            customEnd   = e;
+            loadAll().then(() => window.computeStatistics('custom'));
+        });
+    }
 
     // Optional reload button, if it exists
     const reloadBtn = document.getElementById('reloadBtn');

@@ -124,6 +124,53 @@
             box-shadow: 0 0 0 1px var(--accent);
         }
 
+        .custom-range-panel {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 10px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+
+        .custom-range-panel label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .custom-range-panel input[type="datetime-local"] {
+            padding: 3px 6px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 0.78rem;
+            cursor: pointer;
+        }
+
+        .custom-range-panel input[type="datetime-local"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        #custom-apply-btn {
+            padding: 4px 12px;
+            border-radius: 999px;
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+
+        #custom-apply-btn:hover { opacity: 0.85; }
+
         #reloadBtn,
         #themeToggle,
         #homeBtn {
@@ -810,6 +857,12 @@
                 <button class="range-button active" data-range="day">Day</button>
                 <button class="range-button" data-range="week">Week</button>
                 <button class="range-button" data-range="month">Month</button>
+                <button class="range-button" data-range="custom">Custom</button>
+            </div>
+            <div class="custom-range-panel" id="custom-range-panel">
+                <label>From <input type="datetime-local" id="custom-start"></label>
+                <label>To <input type="datetime-local" id="custom-end"></label>
+                <button id="custom-apply-btn">Apply</button>
             </div>
             <button id="noaaBtn">📊 NOAA Reports</button>
             <button id="easyBtn" {{if .IsGuest}}class="disabled-btn" disabled aria-disabled="true" data-disabled="true" title="Guest role cannot export CSV"{{end}}>
@@ -1115,7 +1168,7 @@
                 <h2>Statistics</h2>
                 <div class="stats-grid">
                     <div class="stats-label"></div>
-                    <div class="stats-val">Today</div>
+                    <div class="stats-val" id="stats-today-label">Today</div>
                     <div class="stats-val" id="stats-range-label">Range</div>
                     <div class="stats-unit"></div>
 

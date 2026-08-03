@@ -98,20 +98,37 @@ func getRangeDuration(r *http.Request) time.Duration {
 	}
 }
 
+// getTimeRange returns (since, until) as Unix seconds.
+// If start/end query params are present (custom range), those are used directly.
+// Otherwise falls back to range-based duration ending at now.
+func getTimeRange(r *http.Request) (since, until int64) {
+	if s := r.URL.Query().Get("start"); s != "" {
+		if e := r.URL.Query().Get("end"); e != "" {
+			sUnix, err1 := strconv.ParseInt(s, 10, 64)
+			eUnix, err2 := strconv.ParseInt(e, 10, 64)
+			if err1 == nil && err2 == nil && sUnix < eUnix {
+				return sUnix, eUnix
+			}
+		}
+	}
+	dur := getRangeDuration(r)
+	now := time.Now().Unix()
+	return now - int64(dur.Seconds()), now
+}
+
 // -------------------- /api/barometer --------------------
 
 func handleBarometer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
 		SELECT dateTime, barometer
 		FROM archive
-		WHERE dateTime >= ?
+		WHERE dateTime >= ? AND dateTime <= ?
 		ORDER BY dateTime ASC
-	`, since)
+	`, since, until)
 	if err != nil {
 		log.Println("DB query error (barometer):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -233,15 +250,14 @@ func handleBarometer(w http.ResponseWriter, r *http.Request) {
 func handleWeather(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
 		SELECT dateTime, outTemp, dewpoint
 		FROM archive
-		WHERE dateTime >= ?
+		WHERE dateTime >= ? AND dateTime <= ?
 		ORDER BY dateTime ASC
-	`, since)
+	`, since, until)
 	if err != nil {
 		log.Println("DB query error (weather):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -284,15 +300,14 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 func handleFeelsLike(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
 		SELECT dateTime, heatindex, windchill, outTemp
 		FROM archive
-		WHERE dateTime >= ?
+		WHERE dateTime >= ? AND dateTime <= ?
 		ORDER BY dateTime ASC
-	`, since)
+	`, since, until)
 	if err != nil {
 		log.Println("DB query error (feelslike):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -389,15 +404,14 @@ func pickFeelsLikeSource(tempF, heatIndexF, windChillF float64) feelsLikeSource 
 func handleHumidity(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
    	    SELECT dateTime, outHumidity
    	    FROM archive
-   	    WHERE dateTime >= ?
+   	    WHERE dateTime >= ? AND dateTime <= ?
    	    ORDER BY dateTime ASC
-   	`, since)
+   	`, since, until)
 	if err != nil {
 		log.Println("DB query error (humidity):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -438,15 +452,14 @@ func handleHumidity(w http.ResponseWriter, r *http.Request) {
 func handleWind(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
 		SELECT dateTime, windSpeed, windGust, windDir
 		FROM archive
-		WHERE dateTime >= ?
+		WHERE dateTime >= ? AND dateTime <= ?
 		ORDER BY dateTime ASC
-	`, since)
+	`, since, until)
 	if err != nil {
 		log.Println("DB query error (wind):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -529,15 +542,14 @@ func degreesToCompass(deg float64) string {
 func handleRain(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
 		SELECT dateTime, rainRate, rain
 		FROM archive
-		WHERE dateTime >= ?
+		WHERE dateTime >= ? AND dateTime <= ?
 		ORDER BY dateTime ASC
-	`, since)
+	`, since, until)
 	if err != nil {
 		log.Println("DB query error (rain):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -600,15 +612,14 @@ func handleRain(w http.ResponseWriter, r *http.Request) {
 func handleLightning(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
         SELECT dateTime, lightning_strike_count, lightning_distance
         FROM archive
-        WHERE dateTime >= ? AND lightning_strike_count IS NOT NULL
+        WHERE dateTime >= ? AND dateTime <= ? AND lightning_strike_count IS NOT NULL
         ORDER BY dateTime ASC
-    `, since)
+    `, since, until)
 	if err != nil {
 		log.Println("DB query error (lightning):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -678,15 +689,14 @@ func handleLightning(w http.ResponseWriter, r *http.Request) {
 func handleInsideTemp(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
         SELECT dateTime, inTemp
         FROM archive
-        WHERE dateTime >= ? AND inTemp IS NOT NULL
+        WHERE dateTime >= ? AND dateTime <= ? AND inTemp IS NOT NULL
         ORDER BY dateTime ASC
-    `, since)
+    `, since, until)
 	if err != nil {
 		log.Println("DB query error (insideTemp):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -730,15 +740,14 @@ func handleInsideTemp(w http.ResponseWriter, r *http.Request) {
 func handleInsideHumidity(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
 	rows, err := db.Query(`
         SELECT dateTime, inHumidity
         FROM archive
-        WHERE dateTime >= ? AND inHumidity IS NOT NULL
+        WHERE dateTime >= ? AND dateTime <= ? AND inHumidity IS NOT NULL
         ORDER BY dateTime ASC
-   	`, since)
+   	`, since, until)
 	if err != nil {
 		log.Println("DB query error (insideHumidity):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
@@ -843,12 +852,18 @@ func handleNOAAYearly(w http.ResponseWriter, r *http.Request) {
 func handleStatistics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	dur := getRangeDuration(r)
-	since := time.Now().Add(-dur).Unix()
+	since, until := getTimeRange(r)
 
-	// Get local midnight for "today" calculations
+	// For custom ranges (start/end params), use midnight of the first day in range.
+	// For standard ranges, use today's local midnight.
 	now := time.Now()
-	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	var midnight time.Time
+	if r.URL.Query().Get("start") != "" {
+		sinceTime := time.Unix(since, 0).In(now.Location())
+		midnight = time.Date(sinceTime.Year(), sinceTime.Month(), sinceTime.Day(), 0, 0, 0, 0, now.Location())
+	} else {
+		midnight = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	}
 	midnightUnix := midnight.Unix()
 
 	// Single query to fetch all necessary data
@@ -858,9 +873,9 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		       heatindex, windchill, windSpeed, windGust, windDir,
 		       inTemp, inHumidity
 		FROM archive
-		WHERE dateTime >= ?
+		WHERE dateTime >= ? AND dateTime <= ?
 		ORDER BY dateTime ASC
-	`, since)
+	`, since, until)
 	if err != nil {
 		log.Println("DB query error (statistics):", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
