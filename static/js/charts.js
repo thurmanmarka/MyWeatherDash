@@ -1502,7 +1502,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             customStart = s;
             customEnd   = e;
-            loadAll().then(() => window.computeStatistics('custom'));
+            // Snapshot current-conditions values so historical load doesn't overwrite them
+            const ccSnap = {
+                latestWeather, latestBarometer, barometerTrend, barometerLevel, barometerForecast,
+                latestFeelsLike, latestHumidity, latestInsideTemp, latestInsideHumidity,
+                latestWind, latestRainRate, latestRainToday, lightningToday, lightningDistance,
+                rainRecentlyActive, lightningRecentlyActive, windStrong
+            };
+            loadAll().then(() => {
+                latestWeather        = ccSnap.latestWeather;
+                latestBarometer      = ccSnap.latestBarometer;
+                barometerTrend       = ccSnap.barometerTrend;
+                barometerLevel       = ccSnap.barometerLevel;
+                barometerForecast    = ccSnap.barometerForecast;
+                latestFeelsLike      = ccSnap.latestFeelsLike;
+                latestHumidity       = ccSnap.latestHumidity;
+                latestInsideTemp     = ccSnap.latestInsideTemp;
+                latestInsideHumidity = ccSnap.latestInsideHumidity;
+                latestWind           = ccSnap.latestWind;
+                latestRainRate       = ccSnap.latestRainRate;
+                latestRainToday      = ccSnap.latestRainToday;
+                lightningToday       = ccSnap.lightningToday;
+                lightningDistance    = ccSnap.lightningDistance;
+                rainRecentlyActive   = ccSnap.rainRecentlyActive;
+                lightningRecentlyActive = ccSnap.lightningRecentlyActive;
+                windStrong           = ccSnap.windStrong;
+                updateCurrentConditions();
+                window.computeStatistics('custom');
+            });
         });
     }
 
@@ -1547,6 +1574,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Trigger a safe refresh; the poller also exists so this is best-effort.
+                if (currentRange === 'custom') {
+                    console.log('[SSE] custom range active; skipping live reload');
+                    return;
+                }
                 if (isLoadAllRunning) {
                     console.log('[SSE] loadAll already running; skipping SSE-triggered refresh');
                     return;
