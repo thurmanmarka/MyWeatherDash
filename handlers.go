@@ -1300,10 +1300,9 @@ func handleCelestial(w http.ResponseWriter, r *http.Request) {
 	// Parse date parameter (defaults to today in local time)
 	dateStr := r.URL.Query().Get("date")
 
-	// Use Rita Ranch, AZ coordinates (from config or hardcoded)
 	coords := astroglide.Coordinates{
-		Lat: 32.093174,   // Rita Ranch latitude
-		Lon: -110.777557, // Rita Ranch longitude (west is negative)
+		Lat: appConfig.Location.Latitude,
+		Lon: appConfig.Location.Longitude,
 	}
 
 	// Load MST/America/Phoenix timezone

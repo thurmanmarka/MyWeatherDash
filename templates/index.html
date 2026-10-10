@@ -258,6 +258,34 @@
             box-shadow: none;
         }
 
+        #skewtBtn,
+        #almanacBtn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.7);
+            background: var(--panel-bg);
+            cursor: pointer;
+            color: var(--text-main);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+            margin-left: 8px;
+        }
+
+        #skewtBtn:hover,
+        #almanacBtn:hover {
+            background: var(--accent-soft);
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.4);
+        }
+
+        #skewtBtn:active,
+        #almanacBtn:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+
         /* NOAA Modal */
         .noaa-modal {
             display: none;
@@ -385,6 +413,96 @@
             background: var(--page-bg);
             color: var(--text-main);
             margin: 0;
+        }
+
+        /* Skew-T Modal */
+        .skewt-modal-content {
+            max-width: 1100px;
+        }
+
+        .skewt-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+            background: var(--page-bg);
+            padding: 10px;
+        }
+
+        #skewtCanvas {
+            display: block;
+            width: 100%;
+            height: 640px;
+        }
+
+        .skewt-footer {
+            padding: 10px 20px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--panel-border);
+        }
+
+        /* Almanac Modal */
+        .almanac-body {
+            padding: 20px;
+            overflow-y: auto;
+            background: var(--page-bg);
+            color: var(--text-main);
+        }
+
+        .almanac-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .almanac-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 14px 16px;
+        }
+
+        .almanac-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .almanac-card .almanac-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            padding: 3px 0;
+        }
+
+        .almanac-card .almanac-row span:first-child {
+            color: var(--text-muted);
+        }
+
+        .almanac-history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .almanac-history-table th,
+        .almanac-history-table td {
+            padding: 6px 10px;
+            text-align: right;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        .almanac-history-table th:first-child,
+        .almanac-history-table td:first-child {
+            text-align: left;
+        }
+
+        .almanac-history-table th {
+            color: var(--text-muted);
+            font-weight: 600;
         }
 
         #status {
@@ -880,6 +998,8 @@
                 </svg>
                 Easy Button
             </button>
+            <button id="skewtBtn">🌡️ Skew-T</button>
+            <button id="almanacBtn">📖 Almanac</button>
         </div>
 
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -1561,6 +1681,41 @@
     </div>
 </div>
 
+<!-- Skew-T Sounding Modal -->
+<div id="skewtModal" class="noaa-modal">
+    <div class="noaa-modal-content skewt-modal-content">
+        <div class="noaa-modal-header">
+            <h2>🌡️ Local Skew-T Sounding</h2>
+            <button class="noaa-modal-close" id="skewtModalClose">&times;</button>
+        </div>
+        <div class="noaa-modal-controls">
+            <span id="skewtStatus" style="font-size: 0.85rem; color: var(--text-muted);">Loading...</span>
+            <button id="skewtRefresh" style="margin-left: auto;">↻ Refresh</button>
+        </div>
+        <div class="skewt-body">
+            <canvas id="skewtCanvas"></canvas>
+        </div>
+        <div class="skewt-footer" id="skewtFooter"></div>
+    </div>
+</div>
+
+<!-- Almanac Modal -->
+<div id="almanacModal" class="noaa-modal">
+    <div class="noaa-modal-content">
+        <div class="noaa-modal-header">
+            <h2>📖 Almanac</h2>
+            <button class="noaa-modal-close" id="almanacModalClose">&times;</button>
+        </div>
+        <div class="noaa-modal-controls">
+            <label style="font-size: 0.85rem; color: var(--text-muted);">Date:</label>
+            <input type="date" id="almanacDate">
+            <button id="almanacLoad">Load</button>
+            <button id="almanacToday">Today</button>
+        </div>
+        <div class="almanac-body" id="almanacBody">Loading...</div>
+    </div>
+</div>
+
 <!-- Injected app config from server -->
 <script>
      window.APP_CONFIG = window.APP_CONFIG || {};
@@ -1676,5 +1831,7 @@
 <script src="/static/js/charts.js?v={{ .AssetVersion }}"></script>
 <script src="/static/js/noaa.js?v={{ .AssetVersion }}"></script>
 <script src="/static/js/easy.js?v={{ .AssetVersion }}"></script>
+<script src="/static/js/skewt.js?v={{ .AssetVersion }}"></script>
+<script src="/static/js/almanac.js?v={{ .AssetVersion }}"></script>
 </body>
 </html>

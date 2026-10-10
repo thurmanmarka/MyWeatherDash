@@ -60,6 +60,8 @@ func main() {
 	http.HandleFunc("/api/insideTemp", handleInsideTemp)
 	http.HandleFunc("/api/insideHumidity", handleInsideHumidity)
 	http.HandleFunc("/api/celestial", handleCelestial)
+	http.HandleFunc("/api/almanac", handleAlmanac)
+	http.HandleFunc("/api/sounding", handleSounding)
 	http.HandleFunc("/api/noaa/monthly", handleNOAAMonthly)
 	http.HandleFunc("/api/noaa/yearly", handleNOAAYearly)
 	http.HandleFunc("/api/statistics", handleStatistics)

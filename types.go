@@ -134,6 +134,66 @@ type MoonPhase struct {
 	Percentage float64 `json:"percentage"` // Illumination percentage (0-100)
 }
 
+// DayRecord holds one past year's high/low/rain for a given month+day ("this day in history")
+type DayRecord struct {
+	Year      int     `json:"year"`
+	HighTemp  float64 `json:"highTemp"`
+	LowTemp   float64 `json:"lowTemp"`
+	RainTotal float64 `json:"rainTotal"`
+}
+
+// AlmanacData combines celestial (sun/moon) data with day-of-year climate records
+type AlmanacData struct {
+	Celestial CelestialData `json:"celestial"`
+
+	YearsOfData    int         `json:"yearsOfData"`
+	RecordHighTemp float64     `json:"recordHighTemp,omitempty"`
+	RecordHighYear int         `json:"recordHighYear,omitempty"`
+	RecordLowTemp  float64     `json:"recordLowTemp,omitempty"`
+	RecordLowYear  int         `json:"recordLowYear,omitempty"`
+	AvgHighTemp    float64     `json:"avgHighTemp,omitempty"`
+	AvgLowTemp     float64     `json:"avgLowTemp,omitempty"`
+	History        []DayRecord `json:"history"`
+}
+
+// SoundingLevel is one vertical level of an atmospheric sounding
+type SoundingLevel struct {
+	PressureHPa float64 `json:"pressureHPa"`
+	HeightM     float64 `json:"heightM"`
+	TempC       float64 `json:"tempC"`
+	DewpointC   float64 `json:"dewpointC"`
+	WindSpeedKt float64 `json:"windSpeedKt"`
+	WindDirDeg  float64 `json:"windDirDeg"`
+}
+
+// SoundingData is a model-derived vertical profile (Skew-T data) for the dashboard location
+type SoundingData struct {
+	GeneratedAt        string          `json:"generatedAt"` // local timestamp the profile represents
+	SurfacePressureHPa float64         `json:"surfacePressureHPa"`
+	Levels             []SoundingLevel `json:"levels"` // ordered surface -> top of atmosphere
+	Source             string          `json:"source"`
+	Parcel             ParcelIndices   `json:"parcel"`
+}
+
+// ParcelIndices holds surface-based parcel thermodynamics derived from a SoundingData profile.
+type ParcelIndices struct {
+	CAPEJkg float64 `json:"capeJkg"`
+	CINJkg  float64 `json:"cinJkg"`
+
+	LCLPressureHPa float64 `json:"lclPressureHPa"`
+	LCLHeightM     float64 `json:"lclHeightM"`
+	LFCPressureHPa float64 `json:"lfcPressureHPa,omitempty"`
+	LFCHeightM     float64 `json:"lfcHeightM,omitempty"`
+	ELPressureHPa  float64 `json:"elPressureHPa,omitempty"`
+	ELHeightM      float64 `json:"elHeightM,omitempty"`
+
+	PrecipitableWaterIn float64 `json:"precipitableWaterIn"`
+
+	LapseRate0to3kmCPerKm   float64 `json:"lapseRate0to3kmCPerKm"`
+	LapseRate3to6kmCPerKm   float64 `json:"lapseRate3to6kmCPerKm"`
+	LapseRate700to500CPerKm float64 `json:"lapseRate700to500CPerKm"`
+}
+
 // StatisticsData holds aggregated metrics for today and the selected range
 type StatisticsData struct {
 	// Rain
